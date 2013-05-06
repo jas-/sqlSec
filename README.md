@@ -55,6 +55,8 @@ DELIMITER ;
 ```
 
 ### Adding new records ###
+
+```sql
 DELIMITER //
 CREATE PROCEDURE Add(IN plain_txt_field CHAR(128), IN cipher_txt_field CHAR(128))
 BEGIN
