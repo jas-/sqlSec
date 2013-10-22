@@ -1,0 +1,96 @@
+#!/bin/bash 
+# Installation script for sqlSec
+# Jason Gerfen <jason.gerfen@gmail.com>
+
+e="echo -en"
+txt_green='\e[1;32m'
+txt_reset='\e[0m'
+
+${e} "${txt_green}sqlSec${txt_reset}\n"
+echo "Automate encryption key rotation for database"
+echo "encrypted fields to meet password lifetime"
+echo "security policies"
+echo ""
+
+function ask {
+ while true; do
+  if [ "${2:-}" = "Y" ]; then
+   prompt="Y/n"
+   default=Y
+  elif [ "${2:-}" = "N" ]; then
+   prompt="y/N"
+   default=N
+  else
+   prompt="y/n"
+   default=
+  fi
+
+  read -p "$1 [$prompt] " REPLY
+
+  if [ -z "$REPLY" ]; then
+   REPLY=$default
+  fi
+  case "$REPLY" in
+   Y*|y*) return 0 ;;
+   N*|n*) return 1 ;;
+  esac
+ done
+}
+
+echo "Creating necessary database creation objects..."
+if [ -d ".install" ] ;
+then
+  touch .install/database-schema.sql
+else
+  mkdir .install
+fi
+cp -fr templates/*.sql .install/
+echo ""
+
+${e} "${txt_green}Database settings${txt_reset}\n"
+echo ""
+
+read -p "Database server name [localhost]: " server
+sed -i "s/{SERVER}/${server:=localhost}/g" *.sql
+
+read -p "Database name : " name
+sed -i "s/{NAME}/${name}/g" *.sql
+echo ""
+
+read -p "Backup directory [/tmp]: " buf
+sed -i "s/{BUF}/${buf:=/tmp}/g" *.sql
+echo ""
+
+sp_user="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w15 | head -n1)";
+sed -i "s/{SP}/${sp_user}/g" *.sql
+sed -i "s/{SP}/${sp_user}/g" ${config}
+sp_pass="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w25 | head -n1)";
+sed -i "s/{SP_PW}/${sp_pass}/g" *.sql
+sed -i "s/{SP_PW}/${sp_pass}/g" ${config}
+
+echo ""
+echo ""
+
+read -p "Enter MySQL username: " mu;
+read -sp "Enter root MySQL password: " pass;
+echo "";
+echo "";
+
+${e} "${txt_green}Creating database, users & permissions${txt_reset}\n"
+mysql -u ${mu} --password=${pass} < sqlSec-schema.sql
+
+${e} "${txt_green}Creating key rotaton procedures${txt_reset}\n"
+mysql -u ${mu} --password=${pass} ${name} < sqlSec-procs.sql
+echo ""
+
+if ask "Create a backup? " Y; then
+ d=$(date +"%Y-%m-%d")
+ mysqldump -u ${mu} --password=${pass} --routines ${name} > ${buf}/${d}-${name}.sql
+ echo "Backup created... ${buf}/${d}-${name}.sql"
+fi
+echo ""
+
+
+
+echo "Cleaning up..."
+#rm *.sql
