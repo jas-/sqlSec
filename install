@@ -103,22 +103,43 @@ echo ""
 ${e} "${txt_green}Specify encrypted fields for database: ${name}${txt_reset}\n"
 echo ""
 
-PS3="Select table to view fields: "
-tables=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "show tables" | awk '{ print $1 }')
-select table in ${tables}; do
- if [ -n "${table}" ]; then
-  PS3="Select field to enable encryption on: "
-  fields=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "describe ${table}" | awk '{ print $1 }')
-  echo ${fields}
-  select field in ${fields}; do
-   if [ -n "${field}" ]; then
-    echo ${field}
-    break
-   fi
-  done
- fi
- break
-done
+t(){
+ table="${1}"
+ PS3="Select field to enable encryption: "
+ fields=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "describe ${table}" | awk '{ print $1 }')
+ fields+=" Main"
+ fields+=" Quit"
+ select field in ${fields}; do
+  if [ "${field}" == "Quit" ]; then
+   break
+  fi
+  if [ "${field}" == "Main" ]; then
+   m
+   break
+  fi
+  if [ -n "${field}" ]; then
+   mysql -u ${mu} --password=${pass} ${name} -sss -e 'INSERT INTO `sqlSec_map` (`tbl`, `field`) VALUES ("'${table}'", "'${field}'")'
+   t ${table}
+  fi
+ done
+}
+
+m(){
+ PS3="Select table to view fields: "
+ tables=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "show tables" | awk '{ print $1 }')
+ tables+=" Quit"
+ select table in ${tables}; do
+  if [ "${table}" == "Quit" ]; then
+   break
+  fi
+  if [ -n "${table}" ]; then
+   t ${table}
+  fi
+  break
+ done
+}
+
+m
 
 echo "Cleaning up..."
 rm -fr .install/

@@ -32,7 +32,6 @@ CREATE TABLE IF NOT EXISTS `sqlSec_map` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `tbl` CHAR(16) NOT NULL,
   `field` CHAR(32) NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `field` (`field`)
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci AUTO_INCREMENT=0;
 
