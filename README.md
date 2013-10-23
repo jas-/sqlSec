@@ -2,48 +2,150 @@
 
 Fork me @ https://www.github.com/jas-/sqlSec
 
-Series of stored procedures forcing new or existing encrypted database contents to adhere to password lifetimes.
+Series of stored procedures forcing new or existing encrypted database contents
+to adhere to password lifetimes.
 
 ## How? ##
-By extracting current encrypted fields, generating a new key, re-encrypting contents & updating original record.
+By extracting current encrypted fields, generating a new key, re-encrypting
+contents & updating original record.
 
 ## Why? ##
-Because I can. No really, encrypted partitons for your database will only secure your backups. Besides you never know when a blind SQL injection will present itself.
+Because I can. No really, encrypted partitons for your database will only
+secure your backups. Besides you never know when a blind SQL injection
+will present itself.
 
 ## Dangerous? ##
-There are several failsafes built in, you can force a backup of all records with old key.
+There are several failsafes built in, you can force a backup of all records
+with old key.
 
 ## Install? ##
 Simple, clone this repo and run installer.
 
 ## Example? ##
-Sure.
+Sure. In the example below we create the necessary copies of our templates,
+connect using a privileged mysql user account, optionally create a backup of
+your existing database, create the sqlSec user, permissions & tables, then
+begin a wizard asking for ```table -> field``` combinations where existing
+encrypted data or new encrypted data resides and adding them to sqlSec's
+internal directory used during automated key rotation.
 
-```php
-./install.php localhost dbname
+```sh
+./install
+sqlSec
+Automate encryption key rotation for database
+encrypted fields to meet password lifetime
+security policies
 
-Enter MySQL root password:
-Successfully created new user account
-Successfully created tables to oops
-Successfully created stored procedures from 'sqlSec-procs.sql'
-sqlSec installation details:
-        Username: 59279858ea0fdefs
-        Password: 48862f22fccaadb3a5xefe
-        Backup path: /var/lib/mysql/dbname/
+Creating necessary database creation objects...
 
-Lets define the table & fields you wish to store encrypted data in...
-        Already using encrypted fields? n
-        Create backup first? n
-        Enter table: myTest
-        Enter field: myField
-        Another record? n
+Database installation credentials
+
+Enter MySQL username: root
+Enter root MySQL password: 
+
+Database settings
+
+Database server name [localhost]: 
+1) dhcp
+Select database to use: 1
+
+Backup directory [/tmp]: 
+
+Create a backup?  [Y/n] 
+Backup created... /tmp/2013-10-23-dhcp.sql
+
+Creating database, users & permissions
+Creating key rotaton procedures
+
+Specify encrypted fields for database: dhcp
+
+1) cors                  8) interfaces          15) sqlSec_settings
+2) dns_servers           9) myTest              16) subnets
+3) dns_zones            10) options             17) traffic
+4) dnssec_keys          11) pools               18) viewServers
+5) failover             12) routes              19) viewServersDetails
+6) groups               13) servers             20) viewTraffic
+7) hosts                14) sqlSec_map          21) Quit
+Select table to view fields: 7
+1) id                4) hardware-address  7) lease
+2) hostname          5) subnet            8) notes
+3) address           6) group             9) Main
+Select field to enable encryption: 4
+1) id                4) hardware-address  7) lease
+2) hostname          5) subnet            8) notes
+3) address           6) group             9) Main
+Select field to enable encryption: 6
+1) id                4) hardware-address  7) lease
+2) hostname          5) subnet            8) notes
+3) address           6) group             9) Main
+Select field to enable encryption: 9
+1) cors                  8) interfaces          15) sqlSec_settings
+2) dns_servers           9) myTest              16) subnets
+3) dns_zones            10) options             17) traffic
+4) dnssec_keys          11) pools               18) viewServers
+5) failover             12) routes              19) viewServersDetails
+6) groups               13) servers             20) viewTraffic
+7) hosts                14) sqlSec_map          21) Quit
+Select table to view fields: 12
+1) id
+2) hostname
+3) route
+4) address
+5) Main
+Select field to enable encryption: 4
+1) id
+2) hostname
+3) route
+4) address
+5) Main
+Select field to enable encryption: 5
+1) cors                  8) interfaces          15) sqlSec_settings
+2) dns_servers           9) myTest              16) subnets
+3) dns_zones            10) options             17) traffic
+4) dnssec_keys          11) pools               18) viewServers
+5) failover             12) routes              19) viewServersDetails
+6) groups               13) servers             20) viewTraffic
+7) hosts                14) sqlSec_map          21) Quit
+Select table to view fields: 16
+1) id        3) subnet    5) mask      7) route
+2) hostname  4) address   6) dns       8) Main
+Select field to enable encryption: 4
+1) id        3) subnet    5) mask      7) route
+2) hostname  4) address   6) dns       8) Main
+Select field to enable encryption: 8
+1) cors                  8) interfaces          15) sqlSec_settings
+2) dns_servers           9) myTest              16) subnets
+3) dns_zones            10) options             17) traffic
+4) dnssec_keys          11) pools               18) viewServers
+5) failover             12) routes              19) viewServersDetails
+6) groups               13) servers             20) viewTraffic
+7) hosts                14) sqlSec_map          21) Quit
+Select table to view fields: 4
+1) id         3) keyname    5) secret
+2) hostname   4) algorithm  6) Main
+Select field to enable encryption: 5
+1) id         3) keyname    5) secret
+2) hostname   4) algorithm  6) Main
+Select field to enable encryption: 6
+1) cors                  8) interfaces          15) sqlSec_settings
+2) dns_servers           9) myTest              16) subnets
+3) dns_zones            10) options             17) traffic
+4) dnssec_keys          11) pools               18) viewServers
+5) failover             12) routes              19) viewServersDetails
+6) groups               13) servers             20) viewTraffic
+7) hosts                14) sqlSec_map          21) Quit
+Select table to view fields: 21
+Cleaning up...
 ```
 
 ## Usage? ##
-The easiest method of saving & retrieving data once you implement the sqlSec project would be to create stored procedures to handle access to the decrypted (plain text) of the cipher text fields. Here are a few examples:
+The easiest method of saving & retrieving data once you implement the sqlSec
+project would be to create stored procedures to handle access to the decrypted
+(plain text) of the cipher text fields. Here are a few examples:
 
 ### Searching records ###
-Here is a simple example of creating a stored procedure which will search a table that contains encrypted fields.
+Here is a simple example of creating a stored procedure which will search a
+table which contains encrypted fields.
 ```sql
 DELIMITER //
 CREATE PROCEDURE Search(IN search_param CHAR(128))
@@ -55,7 +157,7 @@ DELIMITER ;
 ```
 
 ### Adding new records ###
-
+Here is an example procedure that can be used to insert new encrypted data
 ```sql
 DELIMITER //
 CREATE PROCEDURE Add(IN plain_txt_field CHAR(128), IN cipher_txt_field CHAR(128))
