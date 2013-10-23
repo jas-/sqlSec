@@ -48,22 +48,34 @@ fi
 cp -fr templates/*.sql .install/
 echo ""
 
+${e} "${txt_green}Database installation credentials${txt_reset}\n"
+echo ""
+
+read -p "Enter MySQL username: " mu;
+read -sp "Enter root MySQL password: " pass;
+echo ""
+echo ""
+
 ${e} "${txt_green}Database settings${txt_reset}\n"
 echo ""
 
 read -p "Database server name [localhost]: " server
 sed -i "s/{SERVER}/${server:=localhost}/g" .install/*.sql
 
-while read -p "Database name: " name; do
- if [ "${name}" != "" ]; then
-  sed -i "s/{NAME}/${name}/g" .install/*.sql
-  echo ""
-  break
+PS3="Select database to use: "
+db=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "show databases" | awk '{ if($1!="mysql"&&$1!="information_schema"){print $1} }')
+select name in ${db}; do
+ if [ "${name}" != "mysql" ] && [ "${name}" != "information_schema" ]; then
+  if [ -n "${name}" ]; then
+   sed -i "s/{NAME}/${name}/g" .install/*.sql
+   echo ""
+   break
+  fi
  fi
 done
 
 read -p "Backup directory [/tmp]: " buf
-sed -i "s={BUF}=${buf:=/tmp}=g" .install/*.sql
+sed -i "s={BUF}=${buf:=/tmp}=   g" .install/*.sql
 echo ""
 
 sp_user="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w15 | head -n1)";
@@ -74,27 +86,39 @@ key="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w68 | head -n1)";
 sed -i "s/{KEY}/${key}/g" .install/*.sql
 sed -i "s/{VER}/${ver}/g" .install/*.sql
 
-${e} "${txt_green}Database installation credentials${txt_reset}\n"
-echo ""
-
-read -p "Enter MySQL username: " mu;
-read -sp "Enter root MySQL password: " pass;
-echo ""
-echo ""
-
-${e} "${txt_green}Creating database, users & permissions${txt_reset}\n"
-mysql -u ${mu} --password=${pass} < .install/sqlSec-schema.sql
-
-${e} "${txt_green}Creating key rotaton procedures${txt_reset}\n"
-mysql -u ${mu} --password=${pass} ${name} < .install/sqlSec-procs.sql
-echo ""
-
 if ask "Create a backup? " Y; then
  d=$(date +"%Y-%m-%d")
  mysqldump -u ${mu} --password=${pass} --routines ${name} > ${buf}/${d}-${name}.sql
  echo "Backup created... ${buf}/${d}-${name}.sql"
 fi
 echo ""
+
+echo "Creating database, users & permissions"
+mysql -u ${mu} --password=${pass} < .install/sqlSec-schema.sql
+
+echo "Creating key rotaton procedures"
+mysql -u ${mu} --password=${pass} ${name} < .install/sqlSec-procs.sql
+echo ""
+
+${e} "${txt_green}Specify encrypted fields for database: ${name}${txt_reset}\n"
+echo ""
+
+PS3="Select table to view fields: "
+tables=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "show tables" | awk '{ print $1 }')
+select table in ${tables}; do
+ if [ -n "${table}" ]; then
+  PS3="Select field to enable encryption on: "
+  fields=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "describe ${table}" | awk '{ print $1 }')
+  echo ${fields}
+  select field in ${fields}; do
+   if [ -n "${field}" ]; then
+    echo ${field}
+    break
+   fi
+  done
+ fi
+ break
+done
 
 echo "Cleaning up..."
 rm -fr .install/
