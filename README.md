@@ -168,6 +168,40 @@ END//
 DELIMITER ;
 ```
 
+## Tests? ##
+Yes, yes there are. In order to run them make sure you have run the installer,
+selected a database to modify & then selected table & field combinations which
+you wish to use as encrypted fields within the database.
+
+If you simply wish to test with bogus data you can use the following example. This
+example creates 100 bogus records per table/field combination specified during
+the installation process so the total number of records for 5 fields on 5 tables
+would be 500.
+
+```sh
+%> mysql -u &lt;username&gt; -p&lt;password&gt; &lt;db-name&gt; -e 'CALL sqlSec_DBG_FP(100)'
+```
+
+Next we can perform a rotation process. During this process there is quite a
+few things taking place.
+* A backup is created if specified to do so
+* Any table/field combinations are used within primary loop
+* The current encyption key is loaded
+* A temporary table is created
+* A view is created based on temporary table (used as cursor loop due to limiations in MySQL)
+* The table/field combination values are decrypted with current key and placed in newly created temporary table
+* A new encryption key is randomly generated
+* The decrypted data is then encrypted with the new encryption key
+* The newly encrypted data updates the original record id as to minimize disruption of record sets
+* Temporary tables & views are removed
+
+Here is a testing procedure to perform the above process X number of times, in
+this case X=10.
+
+```sh
+%> mysql -u &lt;username&gt; -p&lt;password&gt; &lt;db-name&gt; -e 'CALL sqlSec_DBG_Test(10)'
+```
+
 ## New user? ##
 Privilege separation. A random username coupled with a random password with specific permission assignments to perform the rotation process.
 

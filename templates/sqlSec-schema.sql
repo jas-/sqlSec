@@ -15,12 +15,12 @@ FLUSH PRIVILEGES;
 -- Drop & create new application settings table
 DROP TABLE IF EXISTS `sqlSec_settings`;
 CREATE TABLE IF NOT EXISTS `sqlSec_settings` (
-    `id` BIGINT NOT NULL AUTO_INCREMENT,
-    `version` CHAR(32) NOT NULL,
-    `epoch` INT(8) NOT NULL,
-    `keyID` CHAR(64) NOT NULL,
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `epoch` (`epoch`)
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `version` CHAR(32) NOT NULL,
+  `epoch` INT(8) NOT NULL,
+  `keyID` CHAR(64) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `epoch` (`epoch`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci AUTO_INCREMENT=0;
 
 -- Populate the settings table with defaults

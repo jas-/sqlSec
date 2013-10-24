@@ -1,8 +1,8 @@
 DELIMITER //
 
 -- Main key & data rotation procedure
-DROP PROCEDURE IF EXISTS KR_Main//
-CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE KR_Main(IN backup BOOLEAN, IN debug BOOLEAN)
+DROP PROCEDURE IF EXISTS sqlSec_Main//
+CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_Main(IN backup BOOLEAN, IN debug BOOLEAN)
  DETERMINISTIC
  MODIFIES SQL DATA
  SQL SECURITY INVOKER
@@ -17,15 +17,15 @@ BEGIN
   DECLARE ops CURSOR FOR SELECT `tbl`,`field` FROM `sqlSec_map`;
   DECLARE CONTINUE HANDLER FOR NOT FOUND SET c = TRUE;
 
-  CALL KR_GK(@oldSecret);
+  CALL sqlSec_GK(@oldSecret);
 
   IF (@oldSecret IS NOT NULL) THEN
    IF (backup > 0) THEN
-    CALL KR_BU(@oldSecret);
+    CALL sqlSec_BU(@oldSecret);
    END IF;
    OPEN ops;
-   CALL KR_DT("processing");
-   CALL KR_GT;
+   CALL sqlSec_DT("processing");
+   CALL sqlSec_GT;
    read_loop: LOOP
     FETCH ops INTO t, f;
     IF c THEN
@@ -33,21 +33,21 @@ BEGIN
      LEAVE read_loop;
     END IF;
     SET @rand = CONCAT(t,'_',SUBSTR(SHA1(RAND()), 4, 8));
-    CALL KR_CV(t, f, @oldSecret, @rand);
-    CALL KR_PT(@rand);
-    CALL KR_DV(@rand);
+    CALL sqlSec_CV(t, f, @oldSecret, @rand);
+    CALL sqlSec_PT(@rand);
+    CALL sqlSec_DV(@rand);
    END LOOP;
-   SET @newSecret = KR_GS();
-   CALL KR_SV(@newSecret);
-   CALL KR_RP(@newSecret, debug);
-   CALL KR_DT("processing");
+   SET @newSecret = sqlSec_GS();
+   CALL sqlSec_SV(@newSecret);
+   CALL sqlSec_RP(@newSecret, debug);
+   CALL sqlSec_DT("processing");
   END IF;
  end BLOCK1;
 END//
 
 -- Re-encrypts data from temporary table and saves in original table/field
-DROP PROCEDURE IF EXISTS KR_RP//
-CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE KR_RP(IN Secret LONGTEXT, IN debug BOOLEAN)
+DROP PROCEDURE IF EXISTS sqlSec_RP//
+CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_RP(IN Secret LONGTEXT, IN debug BOOLEAN)
  DETERMINISTIC
  MODIFIES SQL DATA
  SQL SECURITY INVOKER
@@ -64,7 +64,7 @@ BEGIN
 
  IF (Secret IS NOT NULL) THEN
   OPEN ops;
-  CALL KR_GT;
+  CALL sqlSec_GT;
   read_loop: LOOP
    FETCH ops INTO i, t, f, v;
    IF c THEN
@@ -85,19 +85,19 @@ BEGIN
 END//
 
 -- Create backup for new records
-DROP PROCEDURE IF EXISTS KR_BU_New//
-CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE KR_BU_New(IN Secret LONGTEXT)
+DROP PROCEDURE IF EXISTS sqlSec_BU_New//
+CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_BU_New(IN Secret LONGTEXT)
  DETERMINISTIC
  MODIFIES SQL DATA
  SQL SECURITY INVOKER
  COMMENT 'Backup old data prior for new installations'
 BEGIN
- CALL KR_BU(Secret);
+ CALL sqlSec_BU(Secret);
 END//
 
 -- Create new record set procedure
-DROP PROCEDURE IF EXISTS KR_New//
-CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE KR_New(IN t CHAR(16), IN f CHAR(32), IN s LONGTEXT)
+DROP PROCEDURE IF EXISTS sqlSec_New//
+CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_New(IN t CHAR(16), IN f CHAR(32), IN s LONGTEXT)
  DETERMINISTIC
  MODIFIES SQL DATA
  SQL SECURITY INVOKER
@@ -114,21 +114,21 @@ BEGIN
  EXECUTE stmt;
  DEALLOCATE PREPARE stmt;
 
- CALL KR_DT('processing');
- CALL KR_GT;
- CALL KR_PT('sqlSec_NEW');
- CALL KR_GK(@Secret);
+ CALL sqlSec_DT('processing');
+ CALL sqlSec_GT;
+ CALL sqlSec_PT('sqlSec_NEW');
+ CALL sqlSec_GK(@Secret);
  IF (@Secret IS NOT NULL) THEN
-  CALL KR_RP(@Secret, 1);
+  CALL sqlSec_RP(@Secret, 1);
  END IF;
- CALL KR_DT("processing");
- CALL KR_DV('sqlSec_NEW');
+ CALL sqlSec_DT("processing");
+ CALL sqlSec_DV('sqlSec_NEW');
 
 END//
 
 -- Create view procedure
-DROP PROCEDURE IF EXISTS KR_CV//
-CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE KR_CV(IN t CHAR(16), IN f CHAR(32), IN Secret LONGTEXT, IN rnd CHAR(128))
+DROP PROCEDURE IF EXISTS sqlSec_CV//
+CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_CV(IN t CHAR(16), IN f CHAR(32), IN Secret LONGTEXT, IN rnd CHAR(128))
  DETERMINISTIC
  MODIFIES SQL DATA
  SQL SECURITY INVOKER
@@ -141,8 +141,8 @@ BEGIN
 END//
 
 -- Delete view procedure
-DROP PROCEDURE IF EXISTS KR_DV//
-CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE KR_DV(IN rnd CHAR(64))
+DROP PROCEDURE IF EXISTS sqlSec_DV//
+CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DV(IN rnd CHAR(64))
  DETERMINISTIC
  MODIFIES SQL DATA
  SQL SECURITY INVOKER
@@ -155,8 +155,8 @@ BEGIN
 END//
 
 -- Populate processing table from view
-DROP PROCEDURE IF EXISTS KR_PT//
-CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE KR_PT(IN rnd CHAR(128))
+DROP PROCEDURE IF EXISTS sqlSec_PT//
+CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_PT(IN rnd CHAR(128))
  DETERMINISTIC
  MODIFIES SQL DATA
  SQL SECURITY INVOKER
@@ -169,8 +169,8 @@ BEGIN
 END//
 
 -- Generates temporary tables for view(s)
-DROP PROCEDURE IF EXISTS KR_GT//
-CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE KR_GT()
+DROP PROCEDURE IF EXISTS sqlSec_GT//
+CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_GT()
  DETERMINISTIC
  MODIFIES SQL DATA
  SQL SECURITY INVOKER
@@ -185,8 +185,8 @@ BEGIN
 END//
 
 -- Drops temporary table
-DROP PROCEDURE IF EXISTS KR_DT//
-CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE KR_DT(IN tbl CHAR(16))
+DROP PROCEDURE IF EXISTS sqlSec_DT//
+CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DT(IN tbl CHAR(16))
  DETERMINISTIC
  MODIFIES SQL DATA
  SQL SECURITY INVOKER
@@ -199,8 +199,8 @@ BEGIN
 END//
 
 -- Retrieve this months key
-DROP PROCEDURE IF EXISTS KR_GK//
-CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE KR_GK(OUT OutSecret CHAR(128))
+DROP PROCEDURE IF EXISTS sqlSec_GK//
+CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_GK(OUT OutSecret CHAR(128))
  DETERMINISTIC
  SQL SECURITY INVOKER
  COMMENT 'Attempts to retrieve this months key'
@@ -218,8 +218,8 @@ BEGIN
 END//
 
 -- Save new encryption key
-DROP PROCEDURE IF EXISTS KR_SV//
-CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE KR_SV(IN Secret LONGTEXT)
+DROP PROCEDURE IF EXISTS sqlSec_SV//
+CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_SV(IN Secret LONGTEXT)
  DETERMINISTIC
  MODIFIES SQL DATA
  SQL SECURITY INVOKER
@@ -229,13 +229,13 @@ BEGIN
  PREPARE stmt FROM @sql;
  EXECUTE stmt;
  DEALLOCATE PREPARE stmt;
- CALL KR_GK(@newSecret);
+ CALL sqlSec_GK(@newSecret);
 END//
 
 -- Create a function to generate a random key
 -- Stolen from http://mysql-0v34c10ck.blogspot.com/2011/06/truly-random-and-complex-password_12.html
-DROP FUNCTION IF EXISTS KR_GS//
-CREATE DEFINER='{SP}'@'{SERVER}' FUNCTION KR_GS() RETURNS varchar(64) CHARSET utf8
+DROP FUNCTION IF EXISTS sqlSec_GS//
+CREATE DEFINER='{SP}'@'{SERVER}' FUNCTION sqlSec_GS() RETURNS varchar(64) CHARSET utf8
  DETERMINISTIC
  SQL SECURITY INVOKER
  COMMENT 'Creates and returns a random 256 character string'
@@ -276,8 +276,8 @@ BEGIN
 END//
 
 -- Performs backup of all tables prior to key rotation procedure (helps ensure no data loss)
-DROP PROCEDURE IF EXISTS KR_BU//
-CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE KR_BU(IN Secret LONGTEXT)
+DROP PROCEDURE IF EXISTS sqlSec_BU//
+CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_BU(IN Secret LONGTEXT)
  DETERMINISTIC
  MODIFIES SQL DATA
  SQL SECURITY INVOKER
