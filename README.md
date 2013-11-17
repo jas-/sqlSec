@@ -179,7 +179,7 @@ the installation process so the total number of records for 5 fields on 5 tables
 would be 500.
 
 ```sh
-%> mysql -u &lt;username&gt; -p&lt;password&gt; &lt;db-name&gt; -e 'CALL sqlSec_DBG_FP(100)'
+%> mysql -u [username] -p[password] [db-name] -e 'CALL sqlSec_DBG_FP(100)'
 ```
 
 Next we can perform a rotation process. During this process there is quite a
@@ -199,7 +199,7 @@ Here is a testing procedure to perform the above process X number of times, in
 this case X=10.
 
 ```sh
-%> mysql -u &lt;username&gt; -p&lt;password&gt; &lt;db-name&gt; -e 'CALL sqlSec_DBG_Test(10)'
+%> mysql -u [username] -p[password] [db-name] -e 'CALL sqlSec_DBG_Test(10)'
 ```
 
 ## New user? ##
