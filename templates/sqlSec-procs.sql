@@ -238,7 +238,7 @@ END//
 -- Create a function to generate a random key
 -- Stolen from http://mysql-0v34c10ck.blogspot.com/2011/06/truly-random-and-complex-password_12.html
 DROP FUNCTION IF EXISTS sqlSec_GS//
-CREATE DEFINER='{SP}'@'{SERVER}' FUNCTION sqlSec_GS(IN `amount` INT) RETURNS varchar(255) CHARSET utf8
+CREATE DEFINER='{SP}'@'{SERVER}' FUNCTION sqlSec_GS(`amount` INT) RETURNS varchar(255) CHARSET utf8
  DETERMINISTIC
  SQL SECURITY INVOKER
  COMMENT 'Creates and returns a random 256 character string'
