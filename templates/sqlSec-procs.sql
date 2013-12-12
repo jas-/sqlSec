@@ -326,6 +326,7 @@ CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DBG_FP(IN i INT(255))
  SQL SECURITY INVOKER
  COMMENT 'Populate the database with bogus records of n count'
 BEGIN
+ SET foreign_key_checks = 0;
  CALL sqlSec_GK(@Secret);
  BLOCK1: begin
   WHILE i > 0 DO
@@ -342,6 +343,7 @@ BEGIN
    SET i = i - 1;
   END WHILE;
  end BLOCK1;
+ SET foreign_key_checks = 1;
 END//
 
 -- Populate the shematic fields with bogus test data helper
@@ -365,7 +367,7 @@ BEGIN
   OPEN ops;
    LOOP1: loop
     FETCH ops INTO t, f;
-    SET @sql = CONCAT('INSERT INTO `',t,'` (`keyID`, `',f,'`) VALUES (SHA1("',Random1,'"), HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))) ON DUPLICATE KEY UPDATE `',f,'` = HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))');
+    SET @sql = CONCAT('INSERT INTO `',t,'` (`',f,'`) VALUES (HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))) ON DUPLICATE KEY UPDATE `',f,'` = HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))');
     PREPARE stmt FROM @sql;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
