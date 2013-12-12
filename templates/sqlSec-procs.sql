@@ -37,7 +37,7 @@ BEGIN
     CALL sqlSec_PT(@rand);
     CALL sqlSec_DV(@rand);
    END LOOP;
-   SET @newSecret = sqlSec_GS(128);
+   SET @newSecret = sqlSec_GS();
    CALL sqlSec_SV(@newSecret);
    CALL sqlSec_RP(@newSecret, debug);
    CALL sqlSec_DT("processing");
@@ -238,7 +238,7 @@ END//
 -- Create a function to generate a random key
 -- Stolen from http://mysql-0v34c10ck.blogspot.com/2011/06/truly-random-and-complex-password_12.html
 DROP FUNCTION IF EXISTS sqlSec_GS//
-CREATE DEFINER='{SP}'@'{SERVER}' FUNCTION sqlSec_GS(`amount` INT) RETURNS varchar(255) CHARSET utf8
+CREATE DEFINER='{SP}'@'{SERVER}' FUNCTION sqlSec_GS() RETURNS varchar(32) CHARSET utf8
  DETERMINISTIC
  SQL SECURITY INVOKER
  COMMENT 'Creates and returns a random 256 character string'
@@ -246,7 +246,7 @@ BEGIN
   DECLARE charCount TINYINT(1) DEFAULT 0;
   DECLARE charDiceRoll TINYINT(2);
   DECLARE randomChar CHAR(1);
-  DECLARE randomPassword VARCHAR(255) DEFAULT '';
+  DECLARE randomPassword VARCHAR(32) DEFAULT '';
   REPEAT
     SET charCount = charCount + 1;
     SET charDiceRoll = 1 + FLOOR(RAND() * 94);
@@ -273,7 +273,7 @@ BEGIN
       );
     END IF;
     SET randomPassword = CONCAT(randomPassword, randomChar);
-  UNTIL (charCount = amount)
+  UNTIL (charCount = 32)
   END REPEAT;
   RETURN HEX(randomPassword);
 END//
@@ -334,8 +334,8 @@ BEGIN
  BLOCK1: begin
   WHILE i > 0 DO
 
-   SET @Random1 = sqlSec_GS(128);
-   SET @Random2 = sqlSec_GS(128);
+   SET @Random1 = sqlSec_GS();
+   SET @Random2 = sqlSec_GS();
 
    SET @sql = CONCAT('INSERT INTO `keyring` (`keyID`) VALUES (SHA1("',@Random1,'")) ON DUPLICATE KEY UPDATE `keyID` = SHA1("',@Random2,'")');
    PREPARE stmt FROM @sql;
@@ -366,7 +366,7 @@ BEGIN
  DECLARE CONTINUE HANDLER FOR NOT FOUND SET c = 1;
 
  IF (Secret IS NOT NULL) THEN
-  SET @Random2 = sqlSec_GS(4);
+  SET @Random2 = sqlSec_GS();
   OPEN ops;
    LOOP1: loop
     FETCH ops INTO t, f;
