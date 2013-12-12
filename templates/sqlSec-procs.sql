@@ -246,7 +246,7 @@ BEGIN
   DECLARE charCount TINYINT(1) DEFAULT 0;
   DECLARE charDiceRoll TINYINT(2);
   DECLARE randomChar CHAR(1);
-  DECLARE randomPassword CHAR(amount) DEFAULT '';
+  DECLARE randomPassword VARCHAR(255) DEFAULT '';
   REPEAT
     SET charCount = charCount + 1;
     SET charDiceRoll = 1 + FLOOR(RAND() * 94);
