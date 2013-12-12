@@ -326,19 +326,19 @@ CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DBG_FP(IN i INT(255))
  SQL SECURITY INVOKER
  COMMENT 'Populate the database with bogus records of n count'
 BEGIN
- CALL KR_GK(@Secret);
+ CALL sqlSec_GK(@Secret);
  BLOCK1: begin
   WHILE i > 0 DO
 
-   SET @Random1 = KR_GS();
-   SET @Random2 = KR_GS();
+   SET @Random1 = sqlSec_GS();
+   SET @Random2 = sqlSec_GS();
 
    SET @sql = CONCAT('INSERT INTO `keyring` (`keyID`) VALUES (SHA1("',@Random1,'")) ON DUPLICATE KEY UPDATE `keyID` = SHA1("',@Random2,'")');
    PREPARE stmt FROM @sql;
    EXECUTE stmt;
    DEALLOCATE PREPARE stmt;
 
-   CALL KR_DBG_FP1(@Random1, @Secret);
+   CALL sqlSec_DBG_FP1(@Random1, @Secret);
    SET i = i - 1;
   END WHILE;
  end BLOCK1;
@@ -361,7 +361,7 @@ BEGIN
  DECLARE CONTINUE HANDLER FOR NOT FOUND SET c = 1;
 
  IF (Secret IS NOT NULL) THEN
-  SET @Random2 = KR_GS();
+  SET @Random2 = sqlSec_GS();
   OPEN ops;
    LOOP1: loop
     FETCH ops INTO t, f;
@@ -386,10 +386,10 @@ CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DBG_Test(IN i INT)
  COMMENT 'Invoke rotation procedure while printing out current key'
 BEGIN
  WHILE i > 0 DO
-  CALL KR_GK(@S);
+  CALL sqlSec_GK(@S);
   SELECT @S AS CurrentKey;
-  CALL KR_Main(1, 1);
-  CALL KR_GK(@K);
+  CALL sqlSec_Main(1, 1);
+  CALL sqlSec_GK(@K);
   SELECT @K AS NewlyCreatedKey;
   SET i = i - 1;
  END WHILE;
