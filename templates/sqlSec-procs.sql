@@ -62,6 +62,8 @@ BEGIN
  DECLARE ops CURSOR FOR SELECT * FROM `processing`;
  DECLARE CONTINUE HANDLER FOR NOT FOUND SET c = TRUE;
 
+ SET foreign_key_checks = 0;
+
  IF (Secret IS NOT NULL) THEN
   OPEN ops;
   CALL sqlSec_GT;
@@ -82,6 +84,7 @@ BEGIN
 
   END LOOP;
  END IF;
+ SET foreign_key_checks = 1;
 END//
 
 -- Create backup for new records
@@ -405,13 +408,7 @@ CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DBG_Total()
  SQL SECURITY INVOKER
  COMMENT 'Get all table counts & total'
 BEGIN
- SELECT COUNT(*) FROM `certificates` INTO @certificates;
- SELECT COUNT(*) FROM `credentials` INTO @credentials;
- SELECT COUNT(*) FROM `keyring` INTO @keyring;
- SELECT COUNT(*) FROM `privatekeys` INTO @privatekeys;
- SELECT COUNT(*) FROM `publickeys` INTO @publickeys;
- SELECT COUNT(*) FROM `trusts` INTO @trusts;
- SELECT @certificates, @credentials, @keyring, @privatekeys, @publickeys, @trusts, SUM(@certificates + @credentials + @keyring + @privatekeys + @publickeys + @trusts) AS total;
+
 END//
 
 DELIMITER ;
