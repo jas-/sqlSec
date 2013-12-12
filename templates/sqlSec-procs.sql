@@ -37,7 +37,7 @@ BEGIN
     CALL sqlSec_PT(@rand);
     CALL sqlSec_DV(@rand);
    END LOOP;
-   SET @newSecret = sqlSec_GS();
+   SET @newSecret = sqlSec_GS(128);
    CALL sqlSec_SV(@newSecret);
    CALL sqlSec_RP(@newSecret, debug);
    CALL sqlSec_DT("processing");
@@ -334,8 +334,8 @@ BEGIN
  BLOCK1: begin
   WHILE i > 0 DO
 
-   SET @Random1 = sqlSec_GS();
-   SET @Random2 = sqlSec_GS();
+   SET @Random1 = sqlSec_GS(128);
+   SET @Random2 = sqlSec_GS(128);
 
    SET @sql = CONCAT('INSERT INTO `keyring` (`keyID`) VALUES (SHA1("',@Random1,'")) ON DUPLICATE KEY UPDATE `keyID` = SHA1("',@Random2,'")');
    PREPARE stmt FROM @sql;
@@ -366,7 +366,7 @@ BEGIN
  DECLARE CONTINUE HANDLER FOR NOT FOUND SET c = 1;
 
  IF (Secret IS NOT NULL) THEN
-  SET @Random2 = sqlSec_GS();
+  SET @Random2 = sqlSec_GS(4);
   OPEN ops;
    LOOP1: loop
     FETCH ops INTO t, f;
