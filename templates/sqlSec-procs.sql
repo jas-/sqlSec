@@ -330,6 +330,7 @@ CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DBG_FP(IN i INT(255))
  COMMENT 'Populate the database with bogus records of n count'
 BEGIN
  SET foreign_key_checks = 0;
+
  CALL sqlSec_GK(@Secret);
  BLOCK1: begin
   WHILE i > 0 DO
@@ -342,7 +343,10 @@ BEGIN
    EXECUTE stmt;
    DEALLOCATE PREPARE stmt;
 
-   CALL sqlSec_DBG_FP1(@Random1, @Secret);
+   SET @id = LAST_INSERT_ID();
+   SELECT `keyID` INTO @lid FROM `keyring` WHERE `id` = @id;
+
+   CALL sqlSec_DBG_FP1(@lid, @Random1, @Secret);
    SET i = i - 1;
   END WHILE;
  end BLOCK1;
@@ -351,12 +355,13 @@ END//
 
 -- Populate the shematic fields with bogus test data helper
 DROP PROCEDURE IF EXISTS sqlSec_DBG_FP1//
-CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DBG_FP1(IN Random1 CHAR(128), IN Secret LONGTEXT)
+CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DBG_FP1(IN lid BIGINT, IN Random1 CHAR(128), IN Secret LONGTEXT)
  DETERMINISTIC
  MODIFIES SQL DATA
  SQL SECURITY INVOKER
  COMMENT 'Populate the database with bogus records helper'
 BEGIN
+
  DECLARE c INT DEFAULT 0;
 
  DECLARE t CHAR(16) DEFAULT NULL;
@@ -370,16 +375,24 @@ BEGIN
   OPEN ops;
    LOOP1: loop
     FETCH ops INTO t, f;
-    SET @sql = CONCAT('INSERT INTO `',t,'` (`',f,'`) VALUES (HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))) ON DUPLICATE KEY UPDATE `',f,'` = HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))');
+
+    SET foreign_key_checks = 0;
+
+    SET @sql = CONCAT('INSERT INTO `',t,'` (`keyID`, `',f,'`) VALUES ("',lid,'", HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))) ON DUPLICATE KEY UPDATE `',f,'` = HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))');
     PREPARE stmt FROM @sql;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
+
+    SET foreign_key_checks = 1;
+
     IF c THEN
      CLOSE ops;
      LEAVE LOOP1;
     END IF;
+
   END LOOP LOOP1;
  END IF;
+
 END//
 
 -- Performs automated testing of key & encrypted data rotations
