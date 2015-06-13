@@ -8,9 +8,7 @@ txt_green='\e[1;32m'
 txt_reset='\e[0m'
 
 ${e} "${txt_green}sqlSec${txt_reset}\n"
-echo "Automate encryption key rotation for database"
-echo "encrypted fields to meet password lifetime"
-echo "security policies"
+echo "A symmetric encryption key / data rotation tool for MySQL"
 echo ""
 
 function ask {
@@ -67,36 +65,45 @@ if [ "${1}" == "test" ] ; then
   cp -fr tests/test-database.sql .install/
 
   # User defined database settings
-  ${e} "${txt_green}Database settings${txt_reset}\n"
+  echo ""
+  ${e} "${txt_green}Test environment settings${txt_reset}\n"
   echo ""
 
-  read -p "Database server name [localhost]: " server
+  read -p "Test server name [localhost]: " server
   sed -i "s/{SERVER}/${server:=localhost}/g" .install/*.sql
 
-  read -p "Database name [dhcp]: " name
+  read -p "Test database name [dhcp]: " name
   sed -i "s/{NAME}/${name:=dhcp}/g" .install/*.sql
   echo ""
 
-  read -p "Read-Write username [Administrator]: " admin
+  read -p "Test database read-write username [Administrator]: " admin
   sed -i "s/{ADMIN}/${admin:=Administrator}/g" .install/*.sql
 
-  read -sp "Enter Read-Write password [Random]: " admin_pass
+  read -sp "Test database read-write password [Random]: " admin_pass
   tap="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w25 | head -n1)";
   sed -i "s/{ADMIN_PW}/${admin_pass:=${tap}}/g" .install/*.sql
 
   echo ""
-  read -p "Read-Only username [Read_Only]: " ro
+  read -p "Test database read-only username [Read_Only]: " ro
   sed -i "s/{RO}/${ro:=Read_Only}/g" .install/*.sql
 
-  read -sp "Read-Only password [Random]: " ro_pass
+  read -sp "Test database read-only password [Random]: " ro_pass
   tup="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w25 | head -n1)";
   sed -i "s/{RO_PW}/${ro_pass:=${tup}}/g" .install/*.sql
   echo ""
+
+  echo "Installing test database..."
+  mysql -u ${mu} --password=${pass} < .install/test-database.sql
   echo ""
 fi
 
 PS3="Select database to use: "
-db=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "show databases" | awk '{ if($1!="mysql"&&$1!="information_schema"){print $1} }')
+db=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "show databases" | awk '{if($1!="mysql"&&$1!="information_schema"&&$1!="performance_schema"){print $1} }')
+
+if [[ "${db}" =~ ERROR ]] ; then
+  echo "Could not connect to database" && exit 1
+fi
+
 select name in ${db}; do
  if [ "${name}" != "mysql" ] && [ "${name}" != "information_schema" ]; then
   if [ -n "${name}" ]; then
@@ -150,12 +157,12 @@ tables(){
  select field in ${fields}; do
   case ${field} in
    "Main")
-    m
+    fields
     break
     ;;
    *)
     if [ -n "${field}" ]; then
-     mysql -u ${mu} --password=${pass} ${name} -sss -e 'ALTER TABLE "'${table}'" MODIFY "'${field}'" BLOB'
+     mysql -u ${mu} --password=${pass} ${name} -sss -e 'ALTER TABLE `'${table}'` MODIFY `'${field}'` BLOB'
      mysql -u ${mu} --password=${pass} ${name} -sss -e 'INSERT INTO `sqlSec_map` (`tbl`, `field`) VALUES ("'${table}'", "'${field}'")'
      tables ${table}
     else
@@ -174,14 +181,14 @@ fields(){
  select table in ${tables}; do
   case ${table} in
    "Quit")
-    c
+    cleanup
     ;;
    *)
     if [ -n "${table}" ]; then
-     t ${table}
+     tables ${table}
     else
      echo "Invalid choice"
-     t ${table}
+     tables ${table}
     fi
     ;;
   esac
