@@ -1,18 +1,44 @@
 #!/bin/bash 
+
 # Installation script for sqlSec
 # Jason Gerfen <jason.gerfen@gmail.com>
 
 e="echo -en"
-ver="v0.1"
+ver="v0.2.0"
 txt_green='\e[1;32m'
 txt_reset='\e[0m'
 
-${e} "${txt_green}sqlSec${txt_reset}\n"
-echo "Automate encryption key rotation for database"
-echo "encrypted fields to meet password lifetime"
-echo "security policies"
-echo ""
+# Show usage menu
+usage()
+{
+  cat << EOF
+sqlSec - A symmetric encryption / data rotation tool for MySQL
 
+Usage: $0 [options]
+
+OPTIONS:
+   -h      Show this message
+   -t      Install test database & perform automated test suite
+
+EOF
+}
+
+# Tests disabled by default
+test=0
+
+# Parse and apply specified arugments
+while getopts “ht” OPTION ; do
+  case $OPTION in
+    h)
+      usage && exit 1 ;;
+    t)
+      test=1 ;;
+    ?)
+      usage && exit 1 ;;
+  esac
+done
+
+# Y/N prompt function
 function ask {
  while true; do
   if [ "${2:-}" = "Y" ]; then
@@ -62,8 +88,59 @@ echo ""
 read -p "Database server name [localhost]: " server
 sed -i "s/{SERVER}/${server:=localhost}/g" .install/*.sql
 
+# Setup test env if asked
+if [ "${test}" == 1 ] ; then
+  cp -fr tests/test-database.sql .install/
+
+  # User defined database settings
+  echo ""
+  ${e} "${txt_green}Test environment settings${txt_reset}\n"
+  echo ""
+
+  read -p "Test server name [localhost]: " server
+  sed -i "s/{SERVER}/${server:=localhost}/g" .install/*.sql
+
+  read -p "Test database name [PKI]: " name
+  sed -i "s/{NAME}/${name:=PKI}/g" .install/*.sql
+  echo ""
+
+  read -p "Test database read-write username [Administrator]: " admin
+  sed -i "s/{ADMIN}/${admin:=Administrator}/g" .install/*.sql
+
+  read -sp "Test database read-write password [Random]: " admin_pass
+  tap="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w25 | head -n1)";
+  sed -i "s/{ADMIN_PW}/${admin_pass:=${tap}}/g" .install/*.sql
+
+  echo ""
+  read -p "Test database read-only username [Read_Only]: " ro
+  sed -i "s/{RO}/${ro:=Read_Only}/g" .install/*.sql
+
+  read -sp "Test database read-only password [Random]: " ro_pass
+  tup="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w25 | head -n1)";
+  sed -i "s/{RO_PW}/${ro_pass:=${tup}}/g" .install/*.sql
+  echo ""
+
+  echo ""
+  ${e} "${txt_green}Test database account info${txt_reset}\n"
+
+  echo "  Test database server: ${server}"
+  echo "  Test database name: ${name}"
+  echo "  Test database read-write account: ${admin}"
+  echo "  Test database read-write password: ${admin_pass}"
+  echo "  Test database read-only account: ${ro}"
+  echo "  Test database read-only password: ${ro_pass}"
+
+  mysql -u ${mu} --password=${pass} < .install/test-database.sql
+  echo ""
+fi
+
 PS3="Select database to use: "
-db=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "show databases" | awk '{ if($1!="mysql"&&$1!="information_schema"){print $1} }')
+db=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "show databases" | grep -vi "^[information|performance].*")
+
+if [[ "${db}" =~ ERROR ]] ; then
+  echo "Could not connect to database" && exit 1
+fi
+
 select name in ${db}; do
  if [ "${name}" != "mysql" ] && [ "${name}" != "information_schema" ]; then
   if [ -n "${name}" ]; then
@@ -103,55 +180,62 @@ echo ""
 ${e} "${txt_green}Specify encrypted fields for database: ${name}${txt_reset}\n"
 echo ""
 
-c(){
+cleanup(){
  echo "Cleaning up..."
  rm -fr .install/
  exit
 }
 
-t(){
+fields(){
  table="${1}"
  PS3="Select field to enable encryption: "
- fields=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "describe ${table}" | awk '{ print $1 }')
- fields+=" Main"
- select field in ${fields}; do
+ tables=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "describe ${table}" | awk '{ print $1 }')
+ tables+=" Main"
+ select field in ${tables}; do
   case ${field} in
    "Main")
-    m
+    tables
     break
     ;;
    *)
     if [ -n "${field}" ]; then
-     mysql -u ${mu} --password=${pass} ${name} -sss -e 'INSERT INTO `sqlSec_map` (`tbl`, `field`) VALUES ("'${table}'", "'${field}'")'
-     t ${table}
+     # Make sure there aren't any foreign keys on the field selected or we won't be able to convert the field to a BLOB column type
+     chk=$(mysql -u ${mu} --password=${pass} ${name} -sss -e 'select count(*) AS total from information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = "'${name}'" AND TABLE_NAME = "'${table}'" AND COLUMN_NAME = "'${field}'";')
+     if [ "${chk}" -gt 0 ] ; then
+       echo "A foreign key constraint exists for this field. Cannot use '${table}.${field}'"
+     else
+       mysql -u ${mu} --password=${pass} ${name} -sss -e 'ALTER TABLE `'${table}'` MODIFY `'${field}'` BLOB'
+       mysql -u ${mu} --password=${pass} ${name} -sss -e 'INSERT INTO `sqlSec_map` (`tbl`, `field`) VALUES ("'${table}'", "'${field}'")'
+     fi
+     fields ${table}
     else
      echo "Invalid choice"
-     t ${table}
+     fields ${table}
     fi
     ;;
   esac
  done
 }
 
-m(){
+tables(){
  PS3="Select table to view fields: "
  tables=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "show tables" | awk '{ print $1 }')
  tables+=" Quit"
  select table in ${tables}; do
   case ${table} in
    "Quit")
-    c
+    cleanup
     ;;
    *)
     if [ -n "${table}" ]; then
-     t ${table}
+     fields ${table}
     else
      echo "Invalid choice"
-     t ${table}
+     fields ${table}
     fi
     ;;
   esac
  done
 }
 
-m
+tables
