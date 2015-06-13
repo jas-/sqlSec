@@ -346,16 +346,17 @@ BEGIN
    SET @id = LAST_INSERT_ID();
    SELECT `keyID` INTO @lid FROM `keyring` WHERE `id` = @id;
 
-   CALL sqlSec_DBG_FP1(@lid, @Random1, @Secret);
+   CALL sqlSec_DBG_FP1(@Random1, @Secret);
    SET i = i - 1;
   END WHILE;
  end BLOCK1;
+
  SET foreign_key_checks = 1;
 END//
 
 -- Populate the shematic fields with bogus test data helper
 DROP PROCEDURE IF EXISTS sqlSec_DBG_FP1//
-CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DBG_FP1(IN lid BIGINT, IN Random1 CHAR(128), IN Secret LONGTEXT)
+CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DBG_FP1(IN Random1 CHAR(128), IN Secret LONGTEXT)
  DETERMINISTIC
  MODIFIES SQL DATA
  SQL SECURITY INVOKER
@@ -378,7 +379,7 @@ BEGIN
 
     SET foreign_key_checks = 0;
 
-    SET @sql = CONCAT('INSERT INTO `',t,'` (`keyID`, `',f,'`) VALUES ("',lid,'", HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))) ON DUPLICATE KEY UPDATE `',f,'` = HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))');
+    SET @sql = CONCAT('INSERT INTO `',t,'` (`',f,'`) VALUES (HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))) ON DUPLICATE KEY UPDATE `',f,'` = HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))');
     PREPARE stmt FROM @sql;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;

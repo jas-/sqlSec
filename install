@@ -100,8 +100,8 @@ if [ "${test}" == 1 ] ; then
   read -p "Test server name [localhost]: " server
   sed -i "s/{SERVER}/${server:=localhost}/g" .install/*.sql
 
-  read -p "Test database name [dhcp]: " name
-  sed -i "s/{NAME}/${name:=dhcp}/g" .install/*.sql
+  read -p "Test database name [PKI]: " name
+  sed -i "s/{NAME}/${name:=PKI}/g" .install/*.sql
   echo ""
 
   read -p "Test database read-write username [Administrator]: " admin
@@ -135,7 +135,7 @@ if [ "${test}" == 1 ] ; then
 fi
 
 PS3="Select database to use: "
-db=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "show databases" | awk '{if($1!="mysql"&&$1!="information_schema"&&$1!="performance_schema"){print $1} }')
+db=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "show databases" | grep -vi "^[information|performance].*")
 
 if [[ "${db}" =~ ERROR ]] ; then
   echo "Could not connect to database" && exit 1
