@@ -1,141 +1,26 @@
 # sqlSec #
+Maintain PCI-DSS compliance of 'at rest' data with symmetric encryption key
+data rotation.
 
-Fork me @ https://www.github.com/jas-/sqlSec
+## Description ##
+PCI-DSS compliance regarding 'at rest' data requires the use of symmetric
+encryption.
 
-Series of stored procedures forcing new or existing encrypted database contents
-to adhere to password lifetimes.
+With this comes the problem of ['key rotation'](http://www.secureconsulting.net/2008/03/the_key_management_lifecycle_1.html).
 
-## How? ##
-By extracting current encrypted fields, generating a new key, re-encrypting
-contents & updating original record.
+This project aims to provide a simple, free to use method of adhering to said
+compliance by implementing a series of stored procedures bound to the MySQL
+database that requires encrypted data.
 
-## Why? ##
-Because I can. No really, encrypted partitons for your database will only
-secure your backups. Besides you never know when a blind SQL injection
-will present itself.
-
-## Dangerous? ##
-There are several failsafes built in, you can force a backup of all records
-with old key.
+The stored procedures which can setup for event triggers, automated scheduling
+or performed manually to perform the following functions on any specified
+`databse -> table -> field` combinations.
 
 ## Install? ##
 Simple, clone this repo and run installer.
 
-## Example? ##
-Sure. In the example below we create the necessary copies of our templates,
-connect using a privileged mysql user account, optionally create a backup of
-your existing database, create the sqlSec user, permissions & tables, then
-begin a wizard asking for ```table -> field``` combinations where existing
-encrypted data or new encrypted data resides and adding them to sqlSec's
-internal directory used during automated key rotation.
-
 ```sh
-./install
-sqlSec
-Automate encryption key rotation for database
-encrypted fields to meet password lifetime
-security policies
-
-Creating necessary database creation objects...
-
-Database installation credentials
-
-Enter MySQL username: root
-Enter root MySQL password: 
-
-Database settings
-
-Database server name [localhost]: 
-1) dhcp
-Select database to use: 1
-
-Backup directory [/tmp]: 
-
-Create a backup?  [Y/n] 
-Backup created... /tmp/2013-10-23-dhcp.sql
-
-Creating database, users & permissions
-Creating key rotaton procedures
-
-Specify encrypted fields for database: dhcp
-
-1) cors                  8) interfaces          15) sqlSec_settings
-2) dns_servers           9) myTest              16) subnets
-3) dns_zones            10) options             17) traffic
-4) dnssec_keys          11) pools               18) viewServers
-5) failover             12) routes              19) viewServersDetails
-6) groups               13) servers             20) viewTraffic
-7) hosts                14) sqlSec_map          21) Quit
-Select table to view fields: 7
-1) id                4) hardware-address  7) lease
-2) hostname          5) subnet            8) notes
-3) address           6) group             9) Main
-Select field to enable encryption: 4
-1) id                4) hardware-address  7) lease
-2) hostname          5) subnet            8) notes
-3) address           6) group             9) Main
-Select field to enable encryption: 6
-1) id                4) hardware-address  7) lease
-2) hostname          5) subnet            8) notes
-3) address           6) group             9) Main
-Select field to enable encryption: 9
-1) cors                  8) interfaces          15) sqlSec_settings
-2) dns_servers           9) myTest              16) subnets
-3) dns_zones            10) options             17) traffic
-4) dnssec_keys          11) pools               18) viewServers
-5) failover             12) routes              19) viewServersDetails
-6) groups               13) servers             20) viewTraffic
-7) hosts                14) sqlSec_map          21) Quit
-Select table to view fields: 12
-1) id
-2) hostname
-3) route
-4) address
-5) Main
-Select field to enable encryption: 4
-1) id
-2) hostname
-3) route
-4) address
-5) Main
-Select field to enable encryption: 5
-1) cors                  8) interfaces          15) sqlSec_settings
-2) dns_servers           9) myTest              16) subnets
-3) dns_zones            10) options             17) traffic
-4) dnssec_keys          11) pools               18) viewServers
-5) failover             12) routes              19) viewServersDetails
-6) groups               13) servers             20) viewTraffic
-7) hosts                14) sqlSec_map          21) Quit
-Select table to view fields: 16
-1) id        3) subnet    5) mask      7) route
-2) hostname  4) address   6) dns       8) Main
-Select field to enable encryption: 4
-1) id        3) subnet    5) mask      7) route
-2) hostname  4) address   6) dns       8) Main
-Select field to enable encryption: 8
-1) cors                  8) interfaces          15) sqlSec_settings
-2) dns_servers           9) myTest              16) subnets
-3) dns_zones            10) options             17) traffic
-4) dnssec_keys          11) pools               18) viewServers
-5) failover             12) routes              19) viewServersDetails
-6) groups               13) servers             20) viewTraffic
-7) hosts                14) sqlSec_map          21) Quit
-Select table to view fields: 4
-1) id         3) keyname    5) secret
-2) hostname   4) algorithm  6) Main
-Select field to enable encryption: 5
-1) id         3) keyname    5) secret
-2) hostname   4) algorithm  6) Main
-Select field to enable encryption: 6
-1) cors                  8) interfaces          15) sqlSec_settings
-2) dns_servers           9) myTest              16) subnets
-3) dns_zones            10) options             17) traffic
-4) dnssec_keys          11) pools               18) viewServers
-5) failover             12) routes              19) viewServersDetails
-6) groups               13) servers             20) viewTraffic
-7) hosts                14) sqlSec_map          21) Quit
-Select table to view fields: 21
-Cleaning up...
+$ ./install -h
 ```
 
 ## Usage? ##
