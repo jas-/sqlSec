@@ -62,6 +62,39 @@ echo ""
 read -p "Database server name [localhost]: " server
 sed -i "s/{SERVER}/${server:=localhost}/g" .install/*.sql
 
+# Setup test env if asked
+if [ "${1}" == "test" ] ; then
+  cp -fr tests/test-database.sql .install/
+
+  # User defined database settings
+  ${e} "${txt_green}Database settings${txt_reset}\n"
+  echo ""
+
+  read -p "Database server name [localhost]: " server
+  sed -i "s/{SERVER}/${server:=localhost}/g" .install/*.sql
+
+  read -p "Database name [dhcp]: " name
+  sed -i "s/{NAME}/${name:=dhcp}/g" .install/*.sql
+  echo ""
+
+  read -p "Read-Write username [Administrator]: " admin
+  sed -i "s/{ADMIN}/${admin:=Administrator}/g" .install/*.sql
+
+  read -sp "Enter Read-Write password [Random]: " admin_pass
+  tap="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w25 | head -n1)";
+  sed -i "s/{ADMIN_PW}/${admin_pass:=${tap}}/g" .install/*.sql
+
+  echo ""
+  read -p "Read-Only username [Read_Only]: " ro
+  sed -i "s/{RO}/${ro:=Read_Only}/g" .install/*.sql
+
+  read -sp "Read-Only password [Random]: " ro_pass
+  tup="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w25 | head -n1)";
+  sed -i "s/{RO_PW}/${ro_pass:=${tup}}/g" .install/*.sql
+  echo ""
+  echo ""
+fi
+
 PS3="Select database to use: "
 db=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "show databases" | awk '{ if($1!="mysql"&&$1!="information_schema"){print $1} }')
 select name in ${db}; do
