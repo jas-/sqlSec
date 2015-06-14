@@ -12,7 +12,6 @@ txt_reset='\e[0m'
 usage()
 {
   cat << EOF
-sqlSec - A symmetric encryption / data rotation tool for MySQL
 
 Usage: $0 [options]
 
@@ -22,6 +21,9 @@ OPTIONS:
 
 EOF
 }
+
+${e} "${txt_green}sqlSec - A symmetric encryption / data rotation tool for MySQL${txt_reset}\n"
+echo ""
 
 # Tests disabled by default
 test=0
@@ -82,6 +84,9 @@ read -sp "Enter root MySQL password: " pass;
 echo ""
 echo ""
 
+# Determine server version and provide error regarding cryptographic modes
+# when less than 5.6
+
 ${e} "${txt_green}Database settings${txt_reset}\n"
 echo ""
 
@@ -131,6 +136,7 @@ if [ "${test}" == 1 ] ; then
   echo "  Test database read-only password: ${ro_pass}"
 
   mysql -u ${mu} --password=${pass} < .install/test-database.sql
+  mysql -u ${mu} --password=${pass} < .install/test-procs.sql
   echo ""
 fi
 
