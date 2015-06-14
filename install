@@ -219,7 +219,7 @@ fields(){
      # Make sure there aren't any foreign keys on the field selected or we won't be able to convert the field to a BLOB column type
      chk=$(mysql -u ${mu} --password=${pass} ${name} -sss -e 'select count(*) AS total from information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = "'${name}'" AND TABLE_NAME = "'${table}'" AND COLUMN_NAME = "'${field}'";')
      if [ "${chk}" -gt 0 ] ; then
-       echo "A foreign key constraint exists for this field. Cannot use '${table}.${field}'"
+       ${e} "${txt_red}A foreign key constraint exists for this field. Cannot use '${table}.${field}'${txt_reset}\n"
      else
        mysql -u ${mu} --password=${pass} ${name} -sss -e 'ALTER TABLE `'${table}'` MODIFY `'${field}'` BLOB'
        mysql -u ${mu} --password=${pass} ${name} -sss -e 'INSERT INTO `sqlSec_map` (`tbl`, `field`) VALUES ("'${table}'", "'${field}'")'
