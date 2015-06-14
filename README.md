@@ -105,7 +105,7 @@ the test over the 100 records created from the last step for ten iterations.
 $ mysql -u <username> -p <password> PKI -e 'CALL sqlSec_DBG_Test(10)'
 ```
 
-## A note on keys ##
+## Some notes on keys & strength ##
 Prior to version 5.6 of the community MySQL database there was no API to 
 generate a truely [random numbers](http://dev.mysql.com/doc/refman/5.6/en/encryption-functions.html#function_random-bytes).
 
@@ -121,3 +121,14 @@ is limited and subject to attack methods.
 It is HIGHLY recommended that you upgrade the MySQL engine in order to import
 the [advanced cryptographic](https://dev.mysql.com/doc/refman/5.6/en/server-system-variables.html#sysvar_block_encryption_mode)
 key management routines available.
+
+While older MySQL installations are supported the strength of the keys generated
+are not as secure as on versions < 5.6.
+
+### Some notes on key management ###
+The default method of key management is not anywhere near as secure as using
+a key stored offline and only loaded when the need arises to rotate the
+encrypted data and encryption key.
+
+A method of providing the path to a key file is available but must be provided
+at the time of installation and be available at the time of rotation.
