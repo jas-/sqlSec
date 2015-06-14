@@ -107,11 +107,15 @@ $ mysql -u <username> -p <password> PKI -e 'CALL sqlSec_DBG_Test(10)'
 
 ## A note on keys ##
 Prior to version 5.6 of the community MySQL database there was no API to 
-generate a truely random numbers. Nor do they support any IV (Initialization
-Vector) within the AES_ENCRYPT() / AES_DECRYPT() functions.
+generate a truely random numbers. Nor do they support any [IV (Initialization
+Vector)](http://whatis.techtarget.com/definition/initialization-vector-IV)
+within the [AES_ENCRYPT()](https://dev.mysql.com/doc/refman/5.6/en/encryption-functions.html#function_aes-encrypt)
+/ [AES_DECRYPT()](https://dev.mysql.com/doc/refman/5.6/en/encryption-functions.html#function_aes-decrypt)
+functions.
 
 That being said this package will still work but the key & encryption modes
 is limited and subject to attack methods.
 
 It is HIGHLY recommended that you upgrade the MySQL engine in order to import
-the advanced cryptographic key management routines available.
+the [advanced cryptographic](https://dev.mysql.com/doc/refman/5.6/en/server-system-variables.html#sysvar_block_encryption_mode)
+key management routines available.
