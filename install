@@ -135,19 +135,17 @@ if [ "${test}" == 1 ] ; then
 fi
 
 PS3="Select database to use: "
-db=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "show databases" | grep -vi "^[information|performance].*")
+db=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "show databases"|grep -v "information"|grep -v "performance"|grep -v "mysql"|grep -v "view"|grep -v "sqlSec*")
 
 if [[ "${db}" =~ ERROR ]] ; then
   echo "Could not connect to database" && exit 1
 fi
 
 select name in ${db}; do
- if [ "${name}" != "mysql" ] && [ "${name}" != "information_schema" ]; then
-  if [ -n "${name}" ]; then
-   sed -i "s/{NAME}/${name}/g" .install/*.sql
-   echo ""
-   break
-  fi
+ if [ -n "${name}" ]; then
+  sed -i "s/{NAME}/${name}/g" .install/*.sql
+  echo ""
+  break
  fi
 done
 
@@ -189,12 +187,16 @@ cleanup(){
 fields(){
  table="${1}"
  PS3="Select field to enable encryption: "
- tables=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "describe ${table}" | awk '{ print $1 }')
+ tables=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "describe ${table}" | awk '{print $1}')
  tables+=" Main"
+ tables+=" Quit"
  select field in ${tables}; do
   case ${field} in
    "Main")
     tables
+    break
+    ;;
+   "Quit")
     break
     ;;
    *)
@@ -219,7 +221,7 @@ fields(){
 
 tables(){
  PS3="Select table to view fields: "
- tables=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "show tables" | awk '{ print $1 }')
+ tables=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "show tables" | awk '{ print $1 }' | grep -v "sqlSec" | grep -v "view")
  tables+=" Quit"
  select table in ${tables}; do
   case ${table} in
