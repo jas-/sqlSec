@@ -136,7 +136,7 @@ are not as secure as on versions < 5.6.
 ### On key management ###
 The default method of key management is not anywhere near as secure as using
 a key stored offline and only loaded when the need arises to rotate the
-encrypted data and encryption key.
+encryption key and the associated encrypted data.
 
 A method of providing the path to a key file is available but must be provided
 at the time of installation and be available at the time of rotation.
