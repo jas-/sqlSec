@@ -24,6 +24,21 @@ OPTIONS:
 EOF
 }
 
+# Create a client.cnf for credentials
+client()
+{
+  host="${1}"
+  user="${2}"
+  pass="${3}"
+
+  cat << EOF > .install/client.cnf
+[client]
+user=${user}
+password=${pass}
+host=${host}
+EOF
+}
+
 ${e} "${txt_green}sqlSec - A symmetric encryption / data rotation tool for MySQL${txt_reset}\n"
 echo ""
 
@@ -90,7 +105,9 @@ read -sp "Enter root MySQL password: " pass;
 echo ""
 echo ""
 
-ver=$(mysql -u ${mu} --password=${pass} mysql -sss -e 'SELECT @@version'|tr -cd [:digit:])
+client "${server}" "${mu}" "${pass}"
+
+ver=$(mysql --defaults-extra-file=.install/client.cnf mysql -sss -e 'SELECT @@version'|tr -cd [:digit:])
 if [ "${ver}" -lt 560 ] ; then
   legacy=1
   ${e} "${txt_yellow}Your MySQL installation does not support the latest encryption support, it is suggested you upgrade < 5.6.x${txt_reset}\n"
@@ -102,9 +119,12 @@ echo ""
 read -p "Database server name [localhost]: " server
 sed -i "s/{SERVER}/${server:=localhost}/g" .install/*.sql
 
+client "${server}" "${mu}" "${pass}"
+
 # Setup test env if asked
 if [ "${test}" == 1 ] ; then
   cp -fr tests/test-database.sql .install/
+  cp -fr tests/test-procs.sql .install/
 
   # User defined database settings
   echo ""
@@ -122,7 +142,7 @@ if [ "${test}" == 1 ] ; then
   sed -i "s/{ADMIN}/${admin:=Administrator}/g" .install/*.sql
 
   read -sp "Test database read-write password [Random]: " admin_pass
-  tap="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w25 | head -n1)";
+  tap="$(openssl rand -base64 8)";
   sed -i "s/{ADMIN_PW}/${admin_pass:=${tap}}/g" .install/*.sql
 
   echo ""
@@ -130,7 +150,7 @@ if [ "${test}" == 1 ] ; then
   sed -i "s/{RO}/${ro:=Read_Only}/g" .install/*.sql
 
   read -sp "Test database read-only password [Random]: " ro_pass
-  tup="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w25 | head -n1)";
+  tup="$(openssl rand -base64 8)";
   sed -i "s/{RO_PW}/${ro_pass:=${tup}}/g" .install/*.sql
   echo ""
 
@@ -144,13 +164,13 @@ if [ "${test}" == 1 ] ; then
   echo "  Test database read-only account: ${ro}"
   echo "  Test database read-only password: ${ro_pass}"
 
-  mysql -u ${mu} --password=${pass} < .install/test-database.sql
-  mysql -u ${mu} --password=${pass} < .install/test-procs.sql
+  mysql --defaults-extra-file=.install/client.cnf ${name} < .install/test-database.sql
+  mysql --defaults-extra-file=.install/client.cnf ${name} < .install/test-procs.sql
   echo ""
 fi
 
 PS3="Select database to use: "
-db=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "show databases"|grep -v "information"|grep -v "performance"|grep -v "mysql"|grep -v "view"|grep -v "sqlSec*")
+db=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e "show databases"|grep -v "information"|grep -v "performance"|grep -v "mysql"|grep -v "view"|grep -v "sqlSec*")
 
 if [[ "${db}" =~ ERROR ]] ; then
   echo "Could not connect to database" && exit 1
@@ -168,26 +188,26 @@ read -p "Backup directory [/tmp]: " buf
 sed -i "s={BUF}=${buf:=/tmp}=   g" .install/*.sql
 echo ""
 
-sp_user="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w15 | head -n1)";
+sp_user="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w8 | head -n1)";
 sed -i "s/{SP}/${sp_user}/g" .install/*.sql
-sp_pass="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w25 | head -n1)";
+sp_pass="$(openssl rand -base64 25|tr '\n' '$(openssl rand -base64 1)')";
 sed -i "s/{SP_PW}/${sp_pass}/g" .install/*.sql
-key="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w68 | head -n1)";
+key="$(openssl rand -base64 128|tr '\n' '$(openssl rand -base64 1)')";
 sed -i "s/{KEY}/${key}/g" .install/*.sql
 sed -i "s/{VER}/${ver}/g" .install/*.sql
 
 if ask "Create a backup? " Y; then
  d=$(date +"%Y-%m-%d")
- mysqldump -u ${mu} --password=${pass} --routines ${name} > ${buf}/${d}-${name}.sql
+ mysqldump --defaults-extra-file=.install/client.cnf --routines ${name} > ${buf}/${d}-${name}.sql
  echo "Backup created... ${buf}/${d}-${name}.sql"
 fi
 echo ""
 
 echo "Creating database, users & permissions"
-mysql -u ${mu} --password=${pass} < .install/sqlSec-schema.sql
+mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-schema.sql
 
 echo "Creating key rotaton procedures"
-mysql -u ${mu} --password=${pass} ${name} < .install/sqlSec-procs.sql
+mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-procs.sql
 echo ""
 
 ${e} "${txt_green}Specify encrypted fields for database: ${name}${txt_reset}\n"
@@ -202,7 +222,7 @@ cleanup(){
 fields(){
  table="${1}"
  PS3="Select field to enable encryption: "
- tables=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "describe ${table}" | awk '{print $1}')
+ tables=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e "describe ${table}" | awk '{print $1}')
  tables+=" Main"
  tables+=" Quit"
  select field in ${tables}; do
@@ -217,12 +237,12 @@ fields(){
    *)
     if [ -n "${field}" ]; then
      # Make sure there aren't any foreign keys on the field selected or we won't be able to convert the field to a BLOB column type
-     chk=$(mysql -u ${mu} --password=${pass} ${name} -sss -e 'select count(*) AS total from information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = "'${name}'" AND TABLE_NAME = "'${table}'" AND COLUMN_NAME = "'${field}'";')
+     chk=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e 'select count(*) AS total from information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = "'${name}'" AND TABLE_NAME = "'${table}'" AND COLUMN_NAME = "'${field}'";')
      if [ "${chk}" -gt 0 ] ; then
        ${e} "${txt_red}A foreign key constraint exists for this field. Cannot use '${table}.${field}'${txt_reset}\n"
      else
-       mysql -u ${mu} --password=${pass} ${name} -sss -e 'ALTER TABLE `'${table}'` MODIFY `'${field}'` BLOB'
-       mysql -u ${mu} --password=${pass} ${name} -sss -e 'INSERT INTO `sqlSec_map` (`tbl`, `field`) VALUES ("'${table}'", "'${field}'")'
+       mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e 'ALTER TABLE `'${table}'` MODIFY `'${field}'` BLOB'
+       mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e 'INSERT INTO `sqlSec_map` (`tbl`, `field`) VALUES ("'${table}'", "'${field}'")'
      fi
      fields ${table}
     else
@@ -236,7 +256,7 @@ fields(){
 
 tables(){
  PS3="Select table to view fields: "
- tables=$(mysql -u ${mu} --password=${pass} ${name} -sss -e "show tables" | awk '{ print $1 }' | grep -v "sqlSec" | grep -v "view")
+ tables=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e "show tables" | awk '{ print $1 }' | grep -v "sqlSec" | grep -v "view")
  tables+=" Quit"
  select table in ${tables}; do
   case ${table} in
