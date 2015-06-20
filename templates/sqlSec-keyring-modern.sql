@@ -1,5 +1,6 @@
 DELIMITER //
 
+-- Uses latest PRNG functionality to generate keys
 DROP FUNCTION IF EXISTS sqlSec_GS//
 CREATE DEFINER='{SP}'@'{SERVER}' FUNCTION sqlSec_GS() RETURNS varchar(255) CHARSET utf8
  DETERMINISTIC
