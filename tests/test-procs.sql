@@ -16,7 +16,7 @@ BEGIN
  BLOCK1: begin
   WHILE i > 0 DO
 
-   SET @Random1 = sqlSec_GS_1(16);
+   SET @Random1 = UUID();
    SET @Random2 = sqlSec_GS_1(16);
 
    SET @sql = CONCAT('INSERT INTO `keyring` (`keyID`) VALUES (SHA1("',@Random1,'")) ON DUPLICATE KEY UPDATE `keyID` = SHA1("',@Random2,'")');
