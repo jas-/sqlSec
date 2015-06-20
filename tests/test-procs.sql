@@ -17,7 +17,7 @@ BEGIN
   WHILE i > 0 DO
 
    SET @Random1 = UUID();
-   SET @Random2 = sqlSec_GS_1(16);
+   SET @Random2 = sqlSec_GS();
 
    SET @sql = CONCAT('INSERT INTO `keyring` (`keyID`) VALUES (SHA1("',@Random1,'")) ON DUPLICATE KEY UPDATE `keyID` = SHA1("',@Random2,'")');
    PREPARE stmt FROM @sql;
@@ -50,14 +50,13 @@ BEGIN
  DECLARE CONTINUE HANDLER FOR NOT FOUND SET c = 1;
 
  IF (Secret IS NOT NULL) THEN
-  SET @Random2 = sqlSec_GS_1(4);
+  SET @Random2 = sqlSec_GS();
   OPEN ops;
    LOOP1: loop
     FETCH ops INTO t, f;
 
     SET foreign_key_checks = 0;
 
---    SET @sql = CONCAT('INSERT INTO `',t,'` (`keyID`, `',f,'`) VALUES (SHA1("',Random1,'"), HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'"))))');
     SET @sql = CONCAT('INSERT INTO `',t,'` (`keyID`, `',f,'`) VALUES (SHA1("',Random1,'"), HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))) ON DUPLICATE KEY UPDATE `keyID` = "',Random2,'", `',f,'` = HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))');
     PREPARE stmt FROM @sql;
     EXECUTE stmt;

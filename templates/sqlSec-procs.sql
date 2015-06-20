@@ -37,7 +37,7 @@ BEGIN
     CALL sqlSec_PT(@rand);
     CALL sqlSec_DV(@rand);
    END LOOP;
-   SET @newSecret = sqlSec_GS_1(128);
+   SET @newSecret = sqlSec_GS();
    CALL sqlSec_SV(@newSecret);
    CALL sqlSec_RP(@newSecret, debug);
    CALL sqlSec_DT("processing");
@@ -233,58 +233,6 @@ BEGIN
  EXECUTE stmt;
  DEALLOCATE PREPARE stmt;
  CALL sqlSec_GK(@newSecret);
-END//
-
-DROP FUNCTION IF EXISTS sqlSec_GS_1//
-CREATE DEFINER='{SP}'@'{SERVER}' FUNCTION sqlSec_GS_1(`amount` INT) RETURNS varchar(255) CHARSET utf8
- DETERMINISTIC
- SQL SECURITY INVOKER
- COMMENT 'Creates and returns a random 256 character string'
-BEGIN
-  RETURN SHA1(LEFT(UUID(), 8));
-END//
-
--- Create a function to generate a random key
--- Stolen from http://mysql-0v34c10ck.blogspot.com/2011/06/truly-random-and-complex-password_12.html
-DROP FUNCTION IF EXISTS sqlSec_GS//
-CREATE DEFINER='{SP}'@'{SERVER}' FUNCTION sqlSec_GS(`amount` INT) RETURNS varchar(255) CHARSET utf8
- DETERMINISTIC
- SQL SECURITY INVOKER
- COMMENT 'Creates and returns a random 256 character string'
-BEGIN
-  DECLARE charCount TINYINT(1) DEFAULT 0;
-  DECLARE charDiceRoll TINYINT(2);
-  DECLARE randomChar CHAR(1);
-  DECLARE randomPassword VARCHAR(255) DEFAULT '';
-  REPEAT
-    SET charCount = charCount + 1;
-    SET charDiceRoll = 1 + FLOOR(RAND() * 94);
-    IF (charDiceRoll <= 32)
-    THEN
-      SET randomChar = ELT(charDiceRoll,
-      '`', '~', '!', '@', '#', '$', '%', '^',
-      '&', '*', '(', ')', '-', '=', '_', '+',
-      '[', ']', '{', '}', '\\', '/', '|', '?',
-      ';', ':', '\'', '"', ',', '.', '<', '>');
-    ELSEIF (charDiceRoll >= 33)
-      AND (charDiceRoll <= 68)
-    THEN
-      SET charDiceRoll = charDiceRoll - 33;
-      SET randomChar = CONV(
-        charDiceRoll,
-        10, 36);
-    ELSE
-      SET charDiceRoll = charDiceRoll - 59;
-      SET randomChar = LOWER(
-        CONV(
-          charDiceRoll,
-          10, 36)
-      );
-    END IF;
-    SET randomPassword = CONCAT(randomPassword, randomChar);
-  UNTIL (charCount = amount)
-  END REPEAT;
-  RETURN HEX(randomPassword);
 END//
 
 -- Performs backup of all tables prior to key rotation procedure (helps ensure no data loss)

@@ -108,7 +108,7 @@ echo ""
 client "${server}" "${mu}" "${pass}"
 
 ver=$(mysql --defaults-extra-file=.install/client.cnf mysql -sss -e 'SELECT @@version'|tr -cd [:digit:])
-if [ "${ver}" -lt 560 ] ; then
+if [ "${ver:0:3}" -lt 560 ] ; then
   legacy=1
   ${e} "${txt_yellow}Your MySQL installation does not support the latest encryption support, it is suggested you upgrade < 5.6.x${txt_reset}\n"
 fi
@@ -215,7 +215,14 @@ echo "Creating database, users & permissions"
 mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-schema.sql
 mysql --defaults-extra-file=.install/client.cnf ${name} -e 'FLUSH PRIVILEGES'
 
-echo "Creating key rotaton procedures"
+echo "Creating key generation procedures"
+if [ "${ver:0:3}" -lt 560 ] ; then
+  mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-keyring-legacy.sql
+else
+  mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-keyring-modern.sql
+fi
+
+echo "Creating key rotation procedures"
 mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-procs.sql
 echo ""
 
