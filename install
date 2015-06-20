@@ -142,7 +142,7 @@ if [ "${test}" == 1 ] ; then
   sed -i "s/{ADMIN}/${admin:=Administrator}/g" .install/*.sql
 
   read -sp "Test database read-write password [Random]: " admin_pass
-  tap="$(openssl rand -base64 8)";
+  tap="$(openssl rand -hex 16)";
   sed -i "s/{ADMIN_PW}/${admin_pass:=${tap}}/g" .install/*.sql
 
   echo ""
@@ -150,7 +150,7 @@ if [ "${test}" == 1 ] ; then
   sed -i "s/{RO}/${ro:=Read_Only}/g" .install/*.sql
 
   read -sp "Test database read-only password [Random]: " ro_pass
-  tup="$(openssl rand -base64 8)";
+  tup="$(openssl rand -hex 16)";
   sed -i "s/{RO_PW}/${ro_pass:=${tup}}/g" .install/*.sql
   echo ""
 
@@ -164,7 +164,11 @@ if [ "${test}" == 1 ] ; then
   echo "  Test database read-only account: ${ro}"
   echo "  Test database read-only password: ${ro_pass}"
 
+  client "${server}" "${mu}" "${pass}"
+
+  mysql --defaults-extra-file=.install/client.cnf ${name} -e 'FLUSH PRIVILEGES'
   mysql --defaults-extra-file=.install/client.cnf ${name} < .install/test-database.sql
+  mysql --defaults-extra-file=.install/client.cnf ${name} -e 'FLUSH PRIVILEGES'
   mysql --defaults-extra-file=.install/client.cnf ${name} < .install/test-procs.sql
   echo ""
 fi
@@ -185,16 +189,20 @@ select name in ${db}; do
 done
 
 read -p "Backup directory [/tmp]: " buf
-sed -i "s={BUF}=${buf:=/tmp}=   g" .install/*.sql
+sed -i "s|{BUF}|${buf:=/tmp}|g" .install/*.sql
 echo ""
 
 sp_user="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w8 | head -n1)";
 sed -i "s/{SP}/${sp_user}/g" .install/*.sql
-sp_pass="$(openssl rand -base64 25|tr '\n' '$(openssl rand -base64 1)')";
+
+sp_pass="$(openssl rand -hex 12)";
 sed -i "s/{SP_PW}/${sp_pass}/g" .install/*.sql
-key="$(openssl rand -base64 128|tr '\n' '$(openssl rand -base64 1)')";
+
+key="$(openssl rand -hex 64)";
 sed -i "s/{KEY}/${key}/g" .install/*.sql
-sed -i "s/{VER}/${ver}/g" .install/*.sql
+
+#ver="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w8 | head -n1)";
+#sed -i "s/{VER}/${ver}/g" .install/*.sql
 
 if ask "Create a backup? " Y; then
  d=$(date +"%Y-%m-%d")
@@ -205,6 +213,7 @@ echo ""
 
 echo "Creating database, users & permissions"
 mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-schema.sql
+mysql --defaults-extra-file=.install/client.cnf ${name} -e 'FLUSH PRIVILEGES'
 
 echo "Creating key rotaton procedures"
 mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-procs.sql

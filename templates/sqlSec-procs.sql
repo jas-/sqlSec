@@ -37,7 +37,7 @@ BEGIN
     CALL sqlSec_PT(@rand);
     CALL sqlSec_DV(@rand);
    END LOOP;
-   SET @newSecret = sqlSec_GS(128);
+   SET @newSecret = sqlSec_GS_1(128);
    CALL sqlSec_SV(@newSecret);
    CALL sqlSec_RP(@newSecret, debug);
    CALL sqlSec_DT("processing");
@@ -233,6 +233,15 @@ BEGIN
  EXECUTE stmt;
  DEALLOCATE PREPARE stmt;
  CALL sqlSec_GK(@newSecret);
+END//
+
+DROP FUNCTION IF EXISTS sqlSec_GS_1//
+CREATE DEFINER='{SP}'@'{SERVER}' FUNCTION sqlSec_GS_1(`amount` INT) RETURNS varchar(255) CHARSET utf8
+ DETERMINISTIC
+ SQL SECURITY INVOKER
+ COMMENT 'Creates and returns a random 256 character string'
+BEGIN
+  RETURN SHA1(LEFT(UUID(), 8));
 END//
 
 -- Create a function to generate a random key

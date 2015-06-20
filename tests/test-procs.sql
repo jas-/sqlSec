@@ -1,3 +1,5 @@
+USE {NAME};
+
 DELIMITER //
 
 -- Populate the shematic fields with bogus test data
@@ -14,8 +16,8 @@ BEGIN
  BLOCK1: begin
   WHILE i > 0 DO
 
-   SET @Random1 = sqlSec_GS(128);
-   SET @Random2 = sqlSec_GS(128);
+   SET @Random1 = sqlSec_GS_1(16);
+   SET @Random2 = sqlSec_GS_1(16);
 
    SET @sql = CONCAT('INSERT INTO `keyring` (`keyID`) VALUES (SHA1("',@Random1,'")) ON DUPLICATE KEY UPDATE `keyID` = SHA1("',@Random2,'")');
    PREPARE stmt FROM @sql;
@@ -48,7 +50,7 @@ BEGIN
  DECLARE CONTINUE HANDLER FOR NOT FOUND SET c = 1;
 
  IF (Secret IS NOT NULL) THEN
-  SET @Random2 = sqlSec_GS(4);
+  SET @Random2 = sqlSec_GS_1(4);
   OPEN ops;
    LOOP1: loop
     FETCH ops INTO t, f;
