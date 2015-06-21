@@ -47,13 +47,13 @@ CREATE TABLE IF NOT EXISTS `keyring` (
 DROP TABLE IF EXISTS `credentials`;
 CREATE TABLE IF NOT EXISTS `credentials` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
-  `keyID` CHAR(128) NOT NULL,
+  `keyID` BIGINT NOT NULL,
   `email` LONGTEXT NOT NULL,
   `passphrase` LONGTEXT NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `keyID` (`keyID`),
   CONSTRAINT `fk_credentials2keyring` FOREIGN KEY (`keyID`)
-    REFERENCES `keyring`(`keyID`)
+    REFERENCES `keyring`(`id`)
       ON UPDATE CASCADE
       ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci AUTO_INCREMENT=0;
@@ -62,12 +62,12 @@ CREATE TABLE IF NOT EXISTS `credentials` (
 DROP TABLE IF EXISTS `privatekeys`;
 CREATE TABLE IF NOT EXISTS `privatekeys` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
-  `keyID` CHAR(128) NOT NULL,
+  `keyID` BIGINT NOT NULL,
   `private` LONGTEXT NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `keyID` (`keyID`),
   CONSTRAINT `fk_privatekeys2keyring` FOREIGN KEY (`keyID`)
-    REFERENCES `keyring`(`keyID`)
+    REFERENCES `keyring`(`id`)
       ON UPDATE CASCADE
       ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci AUTO_INCREMENT=0;
@@ -76,12 +76,12 @@ CREATE TABLE IF NOT EXISTS `privatekeys` (
 DROP TABLE IF EXISTS `publickeys`;
 CREATE TABLE IF NOT EXISTS `publickeys` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
-  `keyID` CHAR(128) NOT NULL,
+  `keyID` BIGINT NOT NULL,
   `public` LONGTEXT NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `keyID` (`keyID`),
   CONSTRAINT `fk_publickeys2keyring` FOREIGN KEY (`keyID`)
-    REFERENCES `keyring`(`keyID`)
+    REFERENCES `keyring`(`id`)
       ON UPDATE CASCADE
       ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci AUTO_INCREMENT=0;
@@ -90,12 +90,12 @@ CREATE TABLE IF NOT EXISTS `publickeys` (
 DROP TABLE IF EXISTS `certificates`;
 CREATE TABLE IF NOT EXISTS `certificates` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
-  `keyID` CHAR(128) NOT NULL,
+  `keyID` BIGINT NOT NULL,
   `certificate` LONGTEXT NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `keyID` (`keyID`),
   CONSTRAINT `fk_certificates2keyring` FOREIGN KEY (`keyID`)
-    REFERENCES `keyring`(`keyID`)
+    REFERENCES `keyring`(`id`)
       ON UPDATE CASCADE
       ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci AUTO_INCREMENT=0;
@@ -104,12 +104,12 @@ CREATE TABLE IF NOT EXISTS `certificates` (
 DROP TABLE IF EXISTS `trusts`;
 CREATE TABLE IF NOT EXISTS `trusts` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
-  `keyID` CHAR(128) NOT NULL,
+  `keyID` BIGINT NOT NULL,
   `trusted` LONGTEXT NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `keyID` (`keyID`),
   CONSTRAINT `fk_trusts2keyring` FOREIGN KEY (`keyID`)
-    REFERENCES `keyring`(`keyID`)
+    REFERENCES `keyring`(`id`)
       ON UPDATE CASCADE
       ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci AUTO_INCREMENT=0;
@@ -118,11 +118,11 @@ CREATE TABLE IF NOT EXISTS `trusts` (
 DROP TABLE IF EXISTS `escrow`;
 CREATE TABLE IF NOT EXISTS `escrow` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
-  `keyID` CHAR(128) NOT NULL,
+  `keyID` BIGINT NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `keyID` (`keyID`),
   FOREIGN KEY `fk_escrow2keyring` (`keyID`)
-    REFERENCES `keyring`(`keyID`)
+    REFERENCES `keyring`(`id`)
       ON UPDATE CASCADE
       ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci AUTO_INCREMENT=0;
@@ -143,8 +143,8 @@ VIEW viewKeyring AS
   LEFT JOIN privatekeys p ON k.keyID = p.keyID
   LEFT JOIN publickeys pk ON k.keyID = pk.keyID
   LEFT JOIN certificates c ON k.keyID = c.keyID
-  LEFT JOIN trusts t ON k.keyID = t.keyID
- WHERE k.keyID NOT IN (SELECT keyID FROM escrow)
+  LEFT JOIN trusts t ON k.id = t.keyID
+ WHERE k.id NOT IN (SELECT keyID FROM escrow)
  ORDER BY k.keyID;
 
 -- View for keyring entries in escrow
@@ -163,6 +163,6 @@ VIEW viewKeyringInEscrow AS
   LEFT JOIN privatekeys p ON k.keyID = p.keyID
   LEFT JOIN publickeys pk ON k.keyID = pk.keyID
   LEFT JOIN certificates c ON k.keyID = c.keyID
-  LEFT JOIN trusts t ON k.keyID = t.keyID
- WHERE k.keyID IN (SELECT keyID FROM escrow)
+  LEFT JOIN trusts t ON k.id = t.keyID
+ WHERE k.id IN (SELECT keyID FROM escrow)
  ORDER BY k.keyID;

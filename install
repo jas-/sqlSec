@@ -111,6 +111,7 @@ ver=$(mysql --defaults-extra-file=.install/client.cnf mysql -sss -e 'SELECT @@ve
 if [ "${ver:0:3}" -lt 560 ] ; then
   legacy=1
   ${e} "${txt_yellow}Your MySQL installation does not support the latest encryption support, it is suggested you upgrade < 5.6.x${txt_reset}\n"
+  echo ""
 fi
 
 ${e} "${txt_green}Database settings${txt_reset}\n"
@@ -120,6 +121,18 @@ read -p "Database server name [localhost]: " server
 sed -i "s/{SERVER}/${server:=localhost}/g" .install/*.sql
 
 client "${server}" "${mu}" "${pass}"
+
+sp_user="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w8 | head -n1)";
+sed -i "s/{SP}/${sp_user}/g" .install/*.sql
+
+sp_pass="$(openssl rand -hex 12)";
+sed -i "s/{SP_PW}/${sp_pass}/g" .install/*.sql
+
+key="$(openssl rand -hex 128)";
+sed -i "s/{KEY}/${key}/g" .install/*.sql
+
+ver="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w8 | head -n1)";
+sed -i "s/{VER}/${ver}/g" .install/*.sql
 
 # Setup test env if asked
 if [ "${test}" == 1 ] ; then
@@ -192,18 +205,6 @@ read -p "Backup directory [/tmp]: " buf
 sed -i "s|{BUF}|${buf:=/tmp}|g" .install/*.sql
 echo ""
 
-sp_user="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w8 | head -n1)";
-sed -i "s/{SP}/${sp_user}/g" .install/*.sql
-
-sp_pass="$(openssl rand -hex 12)";
-sed -i "s/{SP_PW}/${sp_pass}/g" .install/*.sql
-
-key="$(openssl rand -hex 64)";
-sed -i "s/{KEY}/${key}/g" .install/*.sql
-
-#ver="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w8 | head -n1)";
-#sed -i "s/{VER}/${ver}/g" .install/*.sql
-
 if ask "Create a backup? " Y; then
  d=$(date +"%Y-%m-%d")
  mysqldump --defaults-extra-file=.install/client.cnf --routines ${name} > ${buf}/${d}-${name}.sql
@@ -216,7 +217,7 @@ mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-schema
 mysql --defaults-extra-file=.install/client.cnf ${name} -e 'FLUSH PRIVILEGES'
 
 echo "Creating key generation procedures"
-if [ "${ver:0:3}" -lt 560 ] ; then
+if [ ${ver:0:3} -lt 560 ] ; then
   mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-keyring-legacy.sql
 else
   mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-keyring-modern.sql

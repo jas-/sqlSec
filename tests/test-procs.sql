@@ -10,26 +10,31 @@ CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DBG_FP(IN i INT(255))
  SQL SECURITY INVOKER
  COMMENT 'Populate the database with bogus records of n count'
 BEGIN
+
+ DECLARE uid CHAR(128);
+
  SET foreign_key_checks = 0;
 
  CALL sqlSec_GK(@Secret);
+
  BLOCK1: begin
   WHILE i > 0 DO
 
-   SET @Random1 = UUID();
-   SET @Random2 = sqlSec_GS();
+   SET @uid = SHA1(LEFT(UUID(), 8)+RAND());
 
-   SET @debug = CONCAT('keyring.keyID = "',@Random1,'"');
+   SET @debug = CONCAT('keyring.keyID = "',@uid,'": #',i,'');
    SELECT @debug AS AddingToKeyring;
 
---   SET @sql = CONCAT('INSERT INTO `keyring` (`keyID`) VALUES ("',@Random1,'") ON DUPLICATE KEY UPDATE `keyID` = "',@Random2,'"');
-   SET @sql = CONCAT('INSERT INTO `keyring` (`keyID`) VALUES ("',@Random1,'")');
-   PREPARE stmt FROM @sql;
-   EXECUTE stmt;
-   DEALLOCATE PREPARE stmt;
+   IF (SELECT COUNT(*) FROM `keyring` WHERE `keyID` = @uid) <= 0 THEN
+     SET @sql = CONCAT('INSERT INTO `keyring` (`keyID`) VALUES ("',@uid,'")');
+     PREPARE stmt FROM @sql;
+     EXECUTE stmt;
+     DEALLOCATE PREPARE stmt;
 
-   CALL sqlSec_DBG_FP1(@Random1, @Random2, @Secret);
-   SET i = i - 1;
+     CALL sqlSec_DBG_FP1(@uid, @Secret);
+     SET i = i - 1;
+   END IF;
+
   END WHILE;
  end BLOCK1;
 
@@ -38,7 +43,7 @@ END//
 
 -- Populate the shematic fields with bogus test data helper
 DROP PROCEDURE IF EXISTS sqlSec_DBG_FP1//
-CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DBG_FP1(IN Random1 CHAR(128), IN Random2 CHAR(128), IN Secret LONGTEXT)
+CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DBG_FP1(IN UID CHAR(128), IN Secret LONGTEXT)
  DETERMINISTIC
  MODIFIES SQL DATA
  SQL SECURITY INVOKER
@@ -47,8 +52,8 @@ BEGIN
 
  DECLARE c INT DEFAULT 0;
 
- DECLARE t CHAR(16) DEFAULT NULL;
- DECLARE f CHAR(32) DEFAULT NULL;
+ DECLARE tb CHAR(16) DEFAULT NULL;
+ DECLARE fld CHAR(32) DEFAULT NULL;
 
  DECLARE ops CURSOR FOR SELECT `tbl`,`field` FROM `sqlSec_map`;
  DECLARE CONTINUE HANDLER FOR NOT FOUND SET c = 1;
@@ -56,18 +61,27 @@ BEGIN
  IF (Secret IS NOT NULL) THEN
   OPEN ops;
    LOOP1: loop
-    FETCH ops INTO t, f;
-
--- Add method of picking all like table fields to create insert to help with unique fields
+    FETCH ops INTO tb, fld;
 
     SET foreign_key_checks = 0;
-    SET @Random2 = sqlSec_GS();
+    SET @Value = sqlSec_GS();
 
-    SET @debug = CONCAT('keyID: ',Random1,' -> ',t,'.',f,' = "',@Random2,'"');
-    SELECT @debug AS AddingValue;
+    SET @debug = CONCAT('keyID: ',UID,' -> ',tb,'.',fld,' = "',@Value,'"');
+--    SELECT @debug AS AddingValue;
 
---    SET @sql = CONCAT('INSERT INTO `',t,'` (`keyID`, `',f,'`) VALUES ("',Random1,'", HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))) ON DUPLICATE KEY UPDATE `keyID` = "',Random2,'", `',f,'` = HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))');
-    SET @sql = CONCAT('INSERT INTO `',t,'` (`keyID`, `',f,'`) VALUES ("',Random1,'", HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'"))))');
+    SET @check = CONCAT('SELECT COUNT(*) INTO @chk FROM `',tb,'` WHERE `keyID` = "',UID,'"');
+    PREPARE stmt FROM @check;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+
+    IF (@chk > 0) THEN
+      SET @sql = CONCAT('UPDATE `',tb,'` SET `',fld,'` = HEX(AES_ENCRYPT("',@Value,'", SHA1("',Secret,'"))) WHERE `keyID` = "',UID,'"');
+    ELSE
+      SET @sql = CONCAT('INSERT INTO `',tb,'` (`keyID`, `',fld,'`) VALUES ("',UID,'", HEX(AES_ENCRYPT("',@Value,'", SHA1("',Secret,'"))))');
+    END IF;
+
+    SELECT @sql AS Statement;
+
     PREPARE stmt FROM @sql;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
