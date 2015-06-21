@@ -63,6 +63,8 @@ BEGIN
  DECLARE ops CURSOR FOR SELECT `tbl`,`field` FROM `sqlSec_map`;
  DECLARE CONTINUE HANDLER FOR NOT FOUND SET c = 1;
 
+ DECLARE CONTINUE HANDLER FOR 1062 SELECT 'Error, duplicate key occurred';
+
  IF (Secret IS NOT NULL) THEN
   OPEN ops;
    LOOP1: loop
