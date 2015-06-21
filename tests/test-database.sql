@@ -3,26 +3,31 @@ DROP DATABASE IF EXISTS `{NAME}`;
 CREATE DATABASE `{NAME}` DEFAULT CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
 -- Assign grant priviledge for administrative account then drop it
-GRANT USAGE ON *.* TO `{ADMIN}`@`{SERVER}`;
+GRANT
+  USAGE
+ON *.* TO `{ADMIN}`@`{SERVER}`;
 DROP USER `{ADMIN}`@`{SERVER}`;
 FLUSH PRIVILEGES;
 
 -- Create a default administrative user and assign limited permissions
 CREATE USER `{ADMIN}`@`{SERVER}` IDENTIFIED BY '{ADMIN_PW}';
-GRANT CREATE, SELECT, INSERT, UPDATE, DELETE, REFERENCES, INDEX,
+GRANT
+  CREATE, SELECT, INSERT, UPDATE, DELETE, REFERENCES, INDEX,
   CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE
 ON `{NAME}`.* TO `{ADMIN}`@`{SERVER}`;
 FLUSH PRIVILEGES;
 
 -- Assign grant priviledge for read-only account then drop it
-GRANT USAGE ON *.* TO `{RO}`@`{SERVER}`;
+GRANT
+  USAGE
+ON *.* TO `{RO}`@`{SERVER}`;
 DROP USER `{RO}`@`{SERVER}`;
 FLUSH PRIVILEGES;
 
 -- Create a default read-only user and assign limited permissions
 CREATE USER `{RO}`@`{SERVER}` IDENTIFIED BY '{RO_PW}';
-GRANT SELECT, REFERENCES, INDEX, LOCK TABLES,
-  EXECUTE
+GRANT
+  SELECT, REFERENCES, INDEX, LOCK TABLES, EXECUTE
 ON `{NAME}`.* TO `{RO}`@`{SERVER}`;
 FLUSH PRIVILEGES;
 

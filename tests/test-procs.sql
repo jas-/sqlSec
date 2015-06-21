@@ -19,7 +19,11 @@ BEGIN
    SET @Random1 = UUID();
    SET @Random2 = sqlSec_GS();
 
-   SET @sql = CONCAT('INSERT INTO `keyring` (`keyID`) VALUES (SHA1("',@Random1,'")) ON DUPLICATE KEY UPDATE `keyID` = SHA1("',@Random2,'")');
+   SET @debug = CONCAT('keyring.keyID = "',@Random1,'"');
+   SELECT @debug AS AddingToKeyring;
+
+--   SET @sql = CONCAT('INSERT INTO `keyring` (`keyID`) VALUES ("',@Random1,'") ON DUPLICATE KEY UPDATE `keyID` = "',@Random2,'"');
+   SET @sql = CONCAT('INSERT INTO `keyring` (`keyID`) VALUES ("',@Random1,'")');
    PREPARE stmt FROM @sql;
    EXECUTE stmt;
    DEALLOCATE PREPARE stmt;
@@ -50,14 +54,20 @@ BEGIN
  DECLARE CONTINUE HANDLER FOR NOT FOUND SET c = 1;
 
  IF (Secret IS NOT NULL) THEN
-  SET @Random2 = sqlSec_GS();
   OPEN ops;
    LOOP1: loop
     FETCH ops INTO t, f;
 
-    SET foreign_key_checks = 0;
+-- Add method of picking all like table fields to create insert to help with unique fields
 
-    SET @sql = CONCAT('INSERT INTO `',t,'` (`keyID`, `',f,'`) VALUES (SHA1("',Random1,'"), HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))) ON DUPLICATE KEY UPDATE `keyID` = "',Random2,'", `',f,'` = HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))');
+    SET foreign_key_checks = 0;
+    SET @Random2 = sqlSec_GS();
+
+    SET @debug = CONCAT('keyID: ',Random1,' -> ',t,'.',f,' = "',@Random2,'"');
+    SELECT @debug AS AddingValue;
+
+--    SET @sql = CONCAT('INSERT INTO `',t,'` (`keyID`, `',f,'`) VALUES ("',Random1,'", HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))) ON DUPLICATE KEY UPDATE `keyID` = "',Random2,'", `',f,'` = HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'")))');
+    SET @sql = CONCAT('INSERT INTO `',t,'` (`keyID`, `',f,'`) VALUES ("',Random1,'", HEX(AES_ENCRYPT("',@Random2,'", SHA1("',Secret,'"))))');
     PREPARE stmt FROM @sql;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
