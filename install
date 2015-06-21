@@ -8,7 +8,10 @@ ver="v0.2.0"
 txt_green='\e[1;32m'
 txt_yellow='\e[1;33m'
 txt_red='\e[1;31m'
+txt_gray='\e[1;90m'
 txt_reset='\e[0m'
+txt_gray_ps3=$'\e[90m'
+txt_reset_ps3=$'\e[0m'
 
 # Show usage menu
 usage()
@@ -87,7 +90,7 @@ function ask {
  done
 }
 
-echo "Creating necessary database creation objects..."
+echo -ne "  Creating necessary database creation objects..."
 if [ -d ".install" ] ;
 then
   touch .install/database-schema.sql
@@ -95,29 +98,30 @@ else
   mkdir .install
 fi
 cp -fr templates/*.sql .install/
+echo "done"
 echo ""
 
 ${e} "${txt_green}Database installation credentials${txt_reset}\n"
-echo ""
 
-read -p "Enter MySQL username: " mu;
-read -sp "Enter root MySQL password: " pass;
+read -p "  Enter MySQL username: " mu;
+read -sp "  Enter root MySQL password: " pass;
 echo ""
 echo ""
 
 client "${server}" "${mu}" "${pass}"
 
-ver=$(mysql --defaults-extra-file=.install/client.cnf mysql -sss -e 'SELECT @@version'|tr -cd [:digit:])
-if [ "${ver:0:3}" -lt 560 ] ; then
+mysql_ver=$(mysql --defaults-extra-file=.install/client.cnf mysql -sss -e 'SELECT @@version'|tr -cd [:digit:])
+if [ "${mysql_ver:0:3}" -lt 560 ] ; then
   legacy=1
-  ${e} "${txt_yellow}Your MySQL installation does not support the latest encryption support, it is suggested you upgrade < 5.6.x${txt_reset}\n"
+  ${e} "${txt_red}Warning!${txt_reset}\n"
+  ${e} "${txt_yellow}  Your MySQL installation does not support the latest${txt_reset}\n"
+  ${e} "${txt_yellow}  encryption support, it is suggested you upgrade < 5.6.x${txt_reset}\n"
   echo ""
 fi
 
 ${e} "${txt_green}Database settings${txt_reset}\n"
-echo ""
 
-read -p "Database server name [localhost]: " server
+read -p "  Database server name [localhost]: " server
 sed -i "s/{SERVER}/${server:=localhost}/g" .install/*.sql
 
 client "${server}" "${mu}" "${pass}"
@@ -142,27 +146,26 @@ if [ "${test}" == 1 ] ; then
   # User defined database settings
   echo ""
   ${e} "${txt_green}Test environment settings${txt_reset}\n"
-  echo ""
 
-  read -p "Test server name [localhost]: " server
+  read -p "  Test server name [localhost]: " server
   sed -i "s/{SERVER}/${server:=localhost}/g" .install/*.sql
 
-  read -p "Test database name [PKI]: " name
+  read -p "  Test database name [PKI]: " name
   sed -i "s/{NAME}/${name:=PKI}/g" .install/*.sql
   echo ""
 
-  read -p "Test database read-write username [Administrator]: " admin
+  read -p "  Test database read-write username [Administrator]: " admin
   sed -i "s/{ADMIN}/${admin:=Administrator}/g" .install/*.sql
 
-  read -sp "Test database read-write password [Random]: " admin_pass
+  read -sp "  Test database read-write password [Random]: " admin_pass
   tap="$(openssl rand -hex 16)";
   sed -i "s/{ADMIN_PW}/${admin_pass:=${tap}}/g" .install/*.sql
 
   echo ""
-  read -p "Test database read-only username [Read_Only]: " ro
+  read -p "  Test database read-only username [Read_Only]: " ro
   sed -i "s/{RO}/${ro:=Read_Only}/g" .install/*.sql
 
-  read -sp "Test database read-only password [Random]: " ro_pass
+  read -sp "  Test database read-only password [Random]: " ro_pass
   tup="$(openssl rand -hex 16)";
   sed -i "s/{RO_PW}/${ro_pass:=${tup}}/g" .install/*.sql
   echo ""
@@ -186,7 +189,9 @@ if [ "${test}" == 1 ] ; then
   echo ""
 fi
 
-PS3="Select database to use: "
+${e} "${txt_green}Configure database${txt_reset}\n"
+
+PS3="${txt_gray_ps3}Select database to use: ${txt_reset_ps3}"
 db=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e "show databases"|grep -v "information"|grep -v "performance"|grep -v "mysql"|grep -v "view"|grep -v "sqlSec*")
 
 if [[ "${db}" =~ ERROR ]] ; then
@@ -201,34 +206,39 @@ select name in ${db}; do
  fi
 done
 
-read -p "Backup directory [/tmp]: " buf
-sed -i "s|{BUF}|${buf:=/tmp}|g" .install/*.sql
-echo ""
+${e} "${txt_green}Create backup${txt_reset}\n"
 
-if ask "Create a backup? " Y; then
+read -p "  Backup directory [/tmp]: " buf
+sed -i "s|{BUF}|${buf:=/tmp}|g" .install/*.sql
+
+if ask "  Create a backup? " Y; then
  d=$(date +"%Y-%m-%d")
  mysqldump --defaults-extra-file=.install/client.cnf --routines ${name} > ${buf}/${d}-${name}.sql
- echo "Backup created... ${buf}/${d}-${name}.sql"
+ echo "  Backup created... ${buf}/${d}-${name}.sql"
 fi
 echo ""
 
-echo "Creating database, users & permissions"
+${e} "${txt_green}sqlSec specific operations${txt_reset}\n"
+
+echo -ne "  Adding database sqlSec tables, users & permissions..."
 mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-schema.sql
 mysql --defaults-extra-file=.install/client.cnf ${name} -e 'FLUSH PRIVILEGES'
+echo "done"
 
-echo "Creating key generation procedures"
-if [ ${ver:0:3} -lt 560 ] ; then
+echo -ne "  Creating key generation procedures..."
+if [ "${mysql_ver:0:3}" -lt 560 ] ; then
   mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-keyring-legacy.sql
 else
   mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-keyring-modern.sql
 fi
+echo "done"
 
-echo "Creating key rotation procedures"
+echo -ne "  Creating key rotation procedures"
 mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-procs.sql
+echo "done"
 echo ""
 
 ${e} "${txt_green}Specify encrypted fields for database: ${name}${txt_reset}\n"
-echo ""
 
 cleanup(){
  echo "Cleaning up..."
@@ -238,7 +248,7 @@ cleanup(){
 
 fields(){
  table="${1}"
- PS3="Select field to enable encryption: "
+ PS3="${txt_gray_ps3}Select field to enable encryption: ${txt_reset_ps3}"
  tables=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e "describe ${table}" | awk '{print $1}')
  tables+=" Main"
  tables+=" Quit"
@@ -272,7 +282,7 @@ fields(){
 }
 
 tables(){
- PS3="Select table to view fields: "
+ PS3="${txt_gray_ps3}Select table to view fields: ${txt_reset_ps3}"
  tables=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e "show tables" | awk '{ print $1 }' | grep -v "sqlSec" | grep -v "view")
  tables+=" Quit"
  select table in ${tables}; do
