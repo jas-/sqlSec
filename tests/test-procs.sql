@@ -22,10 +22,15 @@ BEGIN
 
    SET @uid = SHA1(LEFT(UUID(), 8)+RAND());
 
-   SET @debug = CONCAT('keyring.keyID = "',@uid,'": #',i,'');
-   SELECT @debug AS AddingToKeyring;
+   SET @check = CONCAT('SELECT COUNT(*) INTO @chk FROM `keyring` WHERE `keyID` = "',@uid,'"');
+   PREPARE stmt FROM @check;
+   EXECUTE stmt;
+   DEALLOCATE PREPARE stmt;
 
-   IF (SELECT COUNT(*) FROM `keyring` WHERE `keyID` = @uid) <= 0 THEN
+   IF (@chk = 0) THEN
+     SET @debug = CONCAT('#',i,': keyring.keyID = "',@uid,'"');
+     SELECT @debug AS AddingToKeyring;
+
      SET @sql = CONCAT('INSERT INTO `keyring` (`keyID`) VALUES ("',@uid,'")');
      PREPARE stmt FROM @sql;
      EXECUTE stmt;
@@ -67,7 +72,6 @@ BEGIN
     SET @Value = sqlSec_GS();
 
     SET @debug = CONCAT('keyID: ',UID,' -> ',tb,'.',fld,' = "',@Value,'"');
---    SELECT @debug AS AddingValue;
 
     SET @check = CONCAT('SELECT COUNT(*) INTO @chk FROM `',tb,'` WHERE `keyID` = "',UID,'"');
     PREPARE stmt FROM @check;
