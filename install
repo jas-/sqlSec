@@ -131,7 +131,7 @@ sed -i "s/{SERVER}/${server:=localhost}/g" .install/*.sql
 
 client "${server}" "${mu}" "${pass}"
 
-sp_user="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w8 | head -n1)";
+sp_user="$(openssl rand -hex 6)";
 sed -i "s/{SP}/${sp_user}/g" .install/*.sql
 
 sp_pass="$(openssl rand -hex 12)";
@@ -140,13 +140,12 @@ sed -i "s/{SP_PW}/${sp_pass}/g" .install/*.sql
 key="$(openssl rand -hex 128)";
 sed -i "s/{KEY}/${key}/g" .install/*.sql
 
-ver="$(tr -cd '[:alnum:]' < /dev/urandom | fold -w8 | head -n1)";
+ver="$(openssl rand -hex 8)";
 sed -i "s/{VER}/${ver}/g" .install/*.sql
 
 # Setup test env if asked
 if [ "${test}" == 1 ] ; then
-  cp -fr tests/test-database.sql .install/
-  cp -fr tests/test-procs.sql .install/
+  cp -fr tests/*.sql .install/
 
   # User defined database settings
   echo ""
@@ -187,10 +186,11 @@ if [ "${test}" == 1 ] ; then
 
   client "${server}" "${mu}" "${pass}"
 
-  mysql --defaults-extra-file=.install/client.cnf ${name} -e 'FLUSH PRIVILEGES'
-  mysql --defaults-extra-file=.install/client.cnf ${name} < .install/test-database.sql
-  mysql --defaults-extra-file=.install/client.cnf ${name} -e 'FLUSH PRIVILEGES'
-  mysql --defaults-extra-file=.install/client.cnf ${name} < .install/test-procs.sql
+  sed -i "s/{SP}/${sp_user}/g" .install/*.sql
+  sed -i "s/{SP_PW}/${sp_pass}/g" .install/*.sql
+  
+  mysql --defaults-extra-file=.install/client.cnf < .install/test-database.sql
+  mysql --defaults-extra-file=.install/client.cnf < .install/test-procs.sql
   echo ""
 fi
 
@@ -313,6 +313,8 @@ tables(){
 }
 
 tables
+
+# Print randomly generated sqlSec user details
 
 # Generate some stored procedures to handle encryption, decryption and key loading
 # on a per table basis
