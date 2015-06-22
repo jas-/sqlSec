@@ -135,10 +135,10 @@ using within the key management routines.
 Now that you have chosen the fields you wish to use now you can use the
 [`sqlSec_DBG_FP()`](https://github.com/jas-/sqlSec/blob/master/templates/sqlSec-procs.sql#L325-L395)
 stored procedure to populate the `table -> field` combinations with random
-data. An example to create 100 records:
+data. An example to create 100 records with verbose output (boolean):
 
 ```sh
-$ mysql -u <username> -p <password> PKI -e 'CALL sqlSec_DBG_FP(100)'
+$ mysql -u <username> -p <password> PKI -e 'CALL sqlSec_DBG_FP(100, 1)'
 ```
 
 ### Run the encryption key / data rotation tests ###
