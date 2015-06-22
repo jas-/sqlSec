@@ -32,55 +32,100 @@ If you run the tool with the `-t` option it will import a simple `PKI` managemen
 database included with this distribution.
 
 ```sh
-%> ./install -t
-Creating necessary database creation objects...
+$ ./install -t
+sqlSec - A symmetric encryption / data rotation tool for MySQL
+
+  Creating necessary database creation objects...done
 
 Database installation credentials
+  Enter MySQL username: root
+  Enter root MySQL password: 
 
-Enter MySQL username: root
-Enter root MySQL password: 
+Warning!
+  Your MySQL installation does not support the latest
+  encryption support, it is suggested you upgrade < 5.6.x
 
 Database settings
-
-Database server name [localhost]: 
+  Database server name [localhost]: 
 
 Test environment settings
+  Test server name [localhost]: 
+  Test database name [PKI]: 
 
-Test server name [localhost]: 
-Test database name [PKI]: 
-
-Test database read-write username [Administrator]: 
-Test database read-write password [Random]: 
-Test database read-only username [Read_Only]: 
-Test database read-only password [Random]: 
+  Test database read-write username [Administrator]: 
+  Test database read-write password [Random]: 
+  Test database read-only username [Read_Only]: 
+  Test database read-only password [Random]: 
 
 Test database account info
   Test database server: localhost
   Test database name: PKI
   Test database read-write account: Administrator
-  Test database read-write password: WSGp7UnWMAYxQsPKwLH14dwDT
+  Test database read-write password: d09cdf211abe7b85d776110d56c9c9cd
   Test database read-only account: Read_Only
-  Test database read-only password: APMOm4tMIjGAesBMZ0ucARcUp
+  Test database read-only password: 6863c4e8b8d362a4065ad760c246bb16
 
-1) PKI
-Select database to use: 
+Configure database
 1) PKI
 Select database to use: 1
 
-Backup directory [/tmp]: 
+Create backup
+  Backup directory [/tmp]: 
+  Create a backup?  [Y/n] 
+  Backup created... /tmp/2015-06-22-PKI.sql
 
-Create a backup?  [Y/n] 
-./install: line 166: /tmp/2015-06-13-PKI.sql: Permission denied
-Backup created... /tmp/2015-06-13-PKI.sql
-
-Creating database, users & permissions
-Creating key rotaton procedures
+sqlSec specific operations
+  Adding database sqlSec tables, users & permissions...done
+  Creating key generation procedures...done
+  Creating key rotation proceduresdone
 
 Specify encrypted fields for database: PKI
-
 1) certificates  3) escrow        5) privatekeys   7) trusts
 2) credentials   4) keyring       6) publickeys    8) Quit
-Select table to view fields: 
+Select table to view fields: 2
+1) id          3) email       5) Main
+2) keyID       4) passphrase  6) Quit
+Select field to enable encryption: 3
+1) id          3) email       5) Main
+2) keyID       4) passphrase  6) Quit
+Select field to enable encryption: 4
+1) id          3) email       5) Main
+2) keyID       4) passphrase  6) Quit
+Select field to enable encryption: 5
+1) certificates  3) escrow        5) privatekeys   7) trusts
+2) credentials   4) keyring       6) publickeys    8) Quit
+Select table to view fields: 5
+1) id
+2) keyID
+3) private
+4) Main
+5) Quit
+Select field to enable encryption: 3
+1) id
+2) keyID
+3) private
+4) Main
+5) Quit
+Select field to enable encryption: 4
+1) certificates  3) escrow        5) privatekeys   7) trusts
+2) credentials   4) keyring       6) publickeys    8) Quit
+Select table to view fields: 7
+1) id
+2) keyID
+3) trusted
+4) Main
+5) Quit
+Select field to enable encryption: 3
+1) id
+2) keyID
+3) trusted
+4) Main
+5) Quit
+Select field to enable encryption: 4
+1) certificates  3) escrow        5) privatekeys   7) trusts
+2) credentials   4) keyring       6) publickeys    8) Quit
+Select table to view fields: 8
+Cleaning up...
 ```
 
 At that point you can use the wizard to add those fields you wish to begin
