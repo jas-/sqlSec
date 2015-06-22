@@ -3,8 +3,8 @@
 # Installation script for sqlSec
 # Jason Gerfen <jason.gerfen@gmail.com>
 
+# Some printing options
 e="echo -en"
-ver="v0.2.0"
 txt_green='\e[1;32m'
 txt_yellow='\e[1;33m'
 txt_red='\e[1;31m'
@@ -90,6 +90,7 @@ function ask {
  done
 }
 
+# Setup an environement based on the templates
 echo -ne "  Creating necessary database creation objects..."
 if [ -d ".install" ] ;
 then
@@ -101,6 +102,7 @@ cp -fr templates/*.sql .install/
 echo "done"
 echo ""
 
+# Begin questioning about system
 ${e} "${txt_green}Database installation credentials${txt_reset}\n"
 
 read -p "  Enter MySQL username: " mu;
@@ -108,8 +110,10 @@ read -sp "  Enter root MySQL password: " pass;
 echo ""
 echo ""
 
+# Create a connection file
 client "${server}" "${mu}" "${pass}"
 
+# Show warning if old version of MySQL with legacy encryption
 mysql_ver=$(mysql --defaults-extra-file=.install/client.cnf mysql -sss -e 'SELECT @@version'|tr -cd [:digit:])
 if [ "${mysql_ver:0:3}" -lt 560 ] ; then
   legacy=1
@@ -119,6 +123,7 @@ if [ "${mysql_ver:0:3}" -lt 560 ] ; then
   echo ""
 fi
 
+# Generate some credentials for the sqlSec stored procedures
 ${e} "${txt_green}Database settings${txt_reset}\n"
 
 read -p "  Database server name [localhost]: " server
@@ -189,6 +194,7 @@ if [ "${test}" == 1 ] ; then
   echo ""
 fi
 
+# Begin installing sqlSec
 ${e} "${txt_green}Configure database${txt_reset}\n"
 
 PS3="${txt_gray_ps3}Select database to use: ${txt_reset_ps3}"
@@ -206,6 +212,7 @@ select name in ${db}; do
  fi
 done
 
+# Ensure we ask for a backup
 ${e} "${txt_green}Create backup${txt_reset}\n"
 
 read -p "  Backup directory [/tmp]: " buf
@@ -218,6 +225,7 @@ if ask "  Create a backup? " Y; then
 fi
 echo ""
 
+# Get started
 ${e} "${txt_green}sqlSec specific operations${txt_reset}\n"
 
 echo -ne "  Adding database sqlSec tables, users & permissions..."
@@ -232,6 +240,8 @@ else
   mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-keyring-modern.sql
 fi
 echo "done"
+
+# Need to add a key management option here (obscuring the key is not the right way)
 
 echo -ne "  Creating key rotation procedures"
 mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-procs.sql
@@ -303,3 +313,6 @@ tables(){
 }
 
 tables
+
+# Generate some stored procedures to handle encryption, decryption and key loading
+# on a per table basis

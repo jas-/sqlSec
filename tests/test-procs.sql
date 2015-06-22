@@ -4,7 +4,7 @@ DELIMITER //
 
 -- Populate the shematic fields with bogus test data
 DROP PROCEDURE IF EXISTS sqlSec_DBG_FP//
-CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DBG_FP(IN i INT(255))
+CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DBG_FP(IN total INT(255), IN debug INT(1))
  DETERMINISTIC
  MODIFIES SQL DATA
  SQL SECURITY INVOKER
@@ -18,7 +18,7 @@ BEGIN
  CALL sqlSec_GK(@Secret);
 
  BLOCK1: begin
-  WHILE i > 0 DO
+  WHILE total > 0 DO
 
    SET @uid = SHA1(LEFT(UUID(), 8)+RAND());
 
@@ -28,16 +28,19 @@ BEGIN
    DEALLOCATE PREPARE stmt;
 
    IF (@chk = 0) THEN
-     SET @debug = CONCAT('#',i,': keyring.keyID = "',@uid,'"');
+
+    IF (debug = 1) THEN
+     SET @debug = CONCAT('#',total,': keyring.keyID = "',@uid,'"');
      SELECT @debug AS AddingToKeyring;
+    END IF;
 
-     SET @sql = CONCAT('INSERT INTO `keyring` (`keyID`) VALUES ("',@uid,'")');
-     PREPARE stmt FROM @sql;
-     EXECUTE stmt;
-     DEALLOCATE PREPARE stmt;
+    SET @sql = CONCAT('INSERT INTO `keyring` (`keyID`) VALUES ("',@uid,'")');
+    PREPARE stmt FROM @sql;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
 
-     CALL sqlSec_DBG_FP1(@uid, @Secret);
-     SET i = i - 1;
+    CALL sqlSec_DBG_FP1(@uid, @Secret, debug);
+    SET total = total - 1;
    END IF;
 
   END WHILE;
@@ -48,7 +51,7 @@ END//
 
 -- Populate the shematic fields with bogus test data helper
 DROP PROCEDURE IF EXISTS sqlSec_DBG_FP1//
-CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DBG_FP1(IN UID CHAR(128), IN Secret LONGTEXT)
+CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DBG_FP1(IN UID CHAR(128), IN Secret LONGTEXT, IN debug INT(1))
  DETERMINISTIC
  MODIFIES SQL DATA
  SQL SECURITY INVOKER
@@ -73,7 +76,10 @@ BEGIN
     SET foreign_key_checks = 0;
     SET @Value = sqlSec_GS();
 
-    SET @debug = CONCAT('keyID: ',UID,' -> ',tb,'.',fld,' = "',@Value,'"');
+    IF (debug = 1) THEN
+     SET @debug = CONCAT('keyID: ',UID,' -> ',tb,'.',fld,' = "',@Value,'"');
+     SELECT @debug AS CreatingRecord;
+    END IF;
 
     SET @check = CONCAT('SELECT COUNT(*) INTO @chk FROM `',tb,'` WHERE `keyID` = "',UID,'"');
     PREPARE stmt FROM @check;
@@ -81,12 +87,14 @@ BEGIN
     DEALLOCATE PREPARE stmt;
 
     IF (@chk > 0) THEN
-      SET @sql = CONCAT('UPDATE `',tb,'` SET `',fld,'` = HEX(AES_ENCRYPT("',@Value,'", SHA1("',Secret,'"))) WHERE `keyID` = "',UID,'"');
+     SET @sql = CONCAT('UPDATE `',tb,'` SET `',fld,'` = HEX(AES_ENCRYPT("',@Value,'", SHA1("',Secret,'"))) WHERE `keyID` = "',UID,'"');
     ELSE
-      SET @sql = CONCAT('INSERT INTO `',tb,'` (`keyID`, `',fld,'`) VALUES ("',UID,'", HEX(AES_ENCRYPT("',@Value,'", SHA1("',Secret,'"))))');
+     SET @sql = CONCAT('INSERT INTO `',tb,'` (`keyID`, `',fld,'`) VALUES ("',UID,'", HEX(AES_ENCRYPT("',@Value,'", SHA1("',Secret,'"))))');
     END IF;
 
-    SELECT @sql AS Statement;
+    IF (debug = 1) THEN
+     SELECT @sql AS Statement;
+    END IF;
 
     PREPARE stmt FROM @sql;
     EXECUTE stmt;
