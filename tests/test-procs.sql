@@ -39,7 +39,9 @@ BEGIN
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
 
-    CALL sqlSec_DBG_FP1(@uid, @Secret, debug);
+    SELECT LAST_INSERT_ID() INTO @lid;
+
+    CALL sqlSec_DBG_FP1(@lid, @Secret, debug);
     SET total = total - 1;
    END IF;
 
@@ -51,7 +53,7 @@ END//
 
 -- Populate the shematic fields with bogus test data helper
 DROP PROCEDURE IF EXISTS sqlSec_DBG_FP1//
-CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DBG_FP1(IN UID CHAR(128), IN Secret LONGTEXT, IN debug INT(1))
+CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_DBG_FP1(IN UID BIGINT, IN Secret LONGTEXT, IN debug INT(1))
  DETERMINISTIC
  MODIFIES SQL DATA
  SQL SECURITY INVOKER

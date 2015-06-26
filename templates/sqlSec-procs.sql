@@ -278,4 +278,21 @@ BEGIN
  END LOOP LOOP1;
 END//
 
+-- Retrieve encrypted field contents
+DROP PROCEDURE IF EXISTS sqlSec_GD//
+CREATE DEFINER='{SP}'@'{SERVER}' PROCEDURE sqlSec_GD(IN CHAR(255) tbl, IN CHAR(255) fld, IN CHAR(255) whr)
+ DETERMINISTIC
+ MODIFIES SQL DATA
+ SQL SECURITY INVOKER
+ COMMENT 'Loads key & decrypts data'
+BEGIN
+ CALL sqlSec_GK(@Secret);
+
+ SET @sql = CONCAT('SELECT AES_DECRYPT(BINARY(UNHEX(`',fld,'`)), SHA1("',@Secret,'")) FROM `',tbl,'` WHERE AES_DECRYPT(BINARY(UNHEX(`',f,'`)), SHA1("',Secret,'")) = "',whr,'" LIMIT 1');
+ PREPARE stmt FROM @sql;
+ EXECUTE stmt;
+ DEALLOCATE PREPARE stmt;
+
+END//
+
 DELIMITER ;

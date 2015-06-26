@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash
 
 # Installation script for sqlSec
 # Jason Gerfen <jason.gerfen@gmail.com>
@@ -188,7 +188,7 @@ if [ "${test}" == 1 ] ; then
 
   sed -i "s/{SP}/${sp_user}/g" .install/*.sql
   sed -i "s/{SP_PW}/${sp_pass}/g" .install/*.sql
-  
+
   mysql --defaults-extra-file=.install/client.cnf < .install/test-database.sql
   mysql --defaults-extra-file=.install/client.cnf < .install/test-procs.sql
   echo ""
@@ -198,7 +198,7 @@ fi
 ${e} "${txt_green}Configure database${txt_reset}\n"
 
 PS3="${txt_gray_ps3}Select database to use: ${txt_reset_ps3}"
-db=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e "show databases"|grep -v "information"|grep -v "performance"|grep -v "mysql"|grep -v "view"|grep -v "sqlSec*")
+db=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e "show databases"|grep -v "sys"|grep -v "information"|grep -v "performance"|grep -v "mysql"|grep -v "view"|grep -v "sqlSec*")
 
 if [[ "${db}" =~ ERROR ]] ; then
   echo "Could not connect to database" && exit 1

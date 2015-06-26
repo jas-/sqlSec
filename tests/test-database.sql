@@ -3,11 +3,11 @@ DROP DATABASE IF EXISTS `{NAME}`;
 CREATE DATABASE `{NAME}` DEFAULT CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
 -- Assign grant priviledge for administrative account then drop it
-GRANT
-  USAGE
-ON *.* TO `{ADMIN}`@`{SERVER}`;
-DROP USER `{ADMIN}`@`{SERVER}`;
-FLUSH PRIVILEGES;
+-- GRANT
+--   USAGE
+-- ON *.* TO `{ADMIN}`@`{SERVER}`;
+-- DROP USER `{ADMIN}`@`{SERVER}`;
+-- FLUSH PRIVILEGES;
 
 -- Create a default administrative user and assign limited permissions
 CREATE USER `{ADMIN}`@`{SERVER}` IDENTIFIED BY '{ADMIN_PW}';
@@ -18,11 +18,11 @@ ON `{NAME}`.* TO `{ADMIN}`@`{SERVER}`;
 FLUSH PRIVILEGES;
 
 -- Assign grant priviledge for read-only account then drop it
-GRANT
-  USAGE
-ON *.* TO `{RO}`@`{SERVER}`;
-DROP USER `{RO}`@`{SERVER}`;
-FLUSH PRIVILEGES;
+-- GRANT
+--   USAGE
+-- ON *.* TO `{RO}`@`{SERVER}`;
+-- DROP USER `{RO}`@`{SERVER}`;
+-- FLUSH PRIVILEGES;
 
 -- Create a default read-only user and assign limited permissions
 CREATE USER `{RO}`@`{SERVER}` IDENTIFIED BY '{RO_PW}';
@@ -38,7 +38,7 @@ USE `{NAME}`;
 DROP TABLE IF EXISTS `keyring`;
 CREATE TABLE IF NOT EXISTS `keyring` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
-  `keyID` CHAR(128) NOT NULL,
+  `keyID` CHAR(255) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `keyID` (`keyID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci AUTO_INCREMENT=0;
@@ -135,8 +135,10 @@ VIEW viewKeyring AS
   k.id AS Id,
   k.keyID AS KeyID,
   a.email AS Email,
-  a.passphrase AS Password, p.private AS PrivateKey,
-  pk.public AS PublicKey, c.certificate AS Certificate,
+  a.passphrase AS Password,
+  p.private AS PrivateKey,
+  pk.public AS PublicKey,
+  c.certificate AS Certificate,
   t.trusted AS Trusts
  FROM keyring k
   LEFT JOIN credentials a ON k.keyID = a.keyID
@@ -145,7 +147,7 @@ VIEW viewKeyring AS
   LEFT JOIN certificates c ON k.keyID = c.keyID
   LEFT JOIN trusts t ON k.id = t.keyID
  WHERE k.id NOT IN (SELECT keyID FROM escrow)
- ORDER BY k.keyID;
+ ORDER BY k.id ASC;
 
 -- View for keyring entries in escrow
 CREATE OR REPLACE DEFINER='{RO}'@'{SERVER}'
@@ -155,8 +157,10 @@ VIEW viewKeyringInEscrow AS
   k.id AS Id,
   k.keyID AS KeyID,
   a.email AS Email,
-  a.passphrase AS Password, p.private AS PrivateKey,
-  pk.public AS PublicKey, c.certificate AS Certificate,
+  a.passphrase AS Password,
+  p.private AS PrivateKey,
+  pk.public AS PublicKey,
+  c.certificate AS Certificate,
   t.trusted AS Trusts
  FROM keyring k
   LEFT JOIN credentials a ON k.keyID = a.keyID
@@ -165,4 +169,4 @@ VIEW viewKeyringInEscrow AS
   LEFT JOIN certificates c ON k.keyID = c.keyID
   LEFT JOIN trusts t ON k.id = t.keyID
  WHERE k.id IN (SELECT keyID FROM escrow)
- ORDER BY k.keyID;
+ ORDER BY k.id ASC;

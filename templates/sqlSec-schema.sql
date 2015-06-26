@@ -2,9 +2,9 @@
 USE `{NAME}`;
 
 -- Assign grant priviledge for scheduled events account then drop it
-GRANT USAGE ON *.* TO `{SP}`@`{SERVER}`;
-DROP USER `{SP}`@`{SERVER}`;
-FLUSH PRIVILEGES;
+-- GRANT USAGE ON *.* TO `{SP}`@`{SERVER}`;
+-- DROP USER `{SP}`@`{SERVER}`;
+-- FLUSH PRIVILEGES;
 
 -- Create the scheduled events user and assign limited permissions
 CREATE USER `{SP}`@`{SERVER}` IDENTIFIED BY '{SP_PW}';
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS `sqlSec_settings` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `version` CHAR(32) NOT NULL,
   `epoch` INT(8) NOT NULL,
-  `keyID` CHAR(64) NOT NULL,
+  `keyID` BLOB NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `epoch` (`epoch`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci AUTO_INCREMENT=0;
@@ -34,4 +34,3 @@ CREATE TABLE IF NOT EXISTS `sqlSec_map` (
   `field` CHAR(32) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci AUTO_INCREMENT=0;
-
