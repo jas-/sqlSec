@@ -132,7 +132,7 @@ CREATE OR REPLACE DEFINER='{RO}'@'{SERVER}'
  SQL SECURITY INVOKER
 VIEW viewKeyring AS
  SELECT
-  k.id AS Id,
+  k.id AS ID,
   k.keyID AS KeyID,
   a.email AS Email,
   a.passphrase AS Password,
@@ -141,20 +141,20 @@ VIEW viewKeyring AS
   c.certificate AS Certificate,
   t.trusted AS Trusts
  FROM keyring k
-  LEFT JOIN credentials a ON k.keyID = a.keyID
-  LEFT JOIN privatekeys p ON k.keyID = p.keyID
-  LEFT JOIN publickeys pk ON k.keyID = pk.keyID
-  LEFT JOIN certificates c ON k.keyID = c.keyID
-  LEFT JOIN trusts t ON k.id = t.keyID
- WHERE k.id NOT IN (SELECT keyID FROM escrow)
- ORDER BY k.id ASC;
+  LEFT JOIN credentials a ON k.ID = a.keyID
+  LEFT JOIN privatekeys p ON k.ID = p.keyID
+  LEFT JOIN publickeys pk ON k.ID = pk.keyID
+  LEFT JOIN certificates c ON k.ID = c.keyID
+  LEFT JOIN trusts t ON k.ID = t.keyId
+ WHERE k.ID NOT IN (SELECT keyID FROM escrow)
+ ORDER BY k.ID ASC;
 
 -- View for keyring entries in escrow
 CREATE OR REPLACE DEFINER='{RO}'@'{SERVER}'
  SQL SECURITY INVOKER
 VIEW viewKeyringInEscrow AS
  SELECT
-  k.id AS Id,
+  k.id AS ID,
   k.keyID AS KeyID,
   a.email AS Email,
   a.passphrase AS Password,
@@ -163,10 +163,10 @@ VIEW viewKeyringInEscrow AS
   c.certificate AS Certificate,
   t.trusted AS Trusts
  FROM keyring k
-  LEFT JOIN credentials a ON k.keyID = a.keyID
-  LEFT JOIN privatekeys p ON k.keyID = p.keyID
-  LEFT JOIN publickeys pk ON k.keyID = pk.keyID
-  LEFT JOIN certificates c ON k.keyID = c.keyID
-  LEFT JOIN trusts t ON k.id = t.keyID
- WHERE k.id IN (SELECT keyID FROM escrow)
- ORDER BY k.id ASC;
+  LEFT JOIN credentials a ON k.ID = a.keyID
+  LEFT JOIN privatekeys p ON k.ID = p.keyID
+  LEFT JOIN publickeys pk ON k.ID = pk.keyID
+  LEFT JOIN certificates c ON k.ID = c.keyID
+  LEFT JOIN trusts t ON k.ID = t.keyId
+ WHERE k.ID IN (SELECT keyID FROM escrow)
+ ORDER BY k.ID ASC;

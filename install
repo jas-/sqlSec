@@ -90,6 +90,28 @@ function ask {
  done
 }
 
+# Execute a MySQL command
+exec_cmd()
+{
+  cmd="${1}"
+  [ "${2}" != "" ] && db="${2}"
+
+}
+
+# Import MySQL file
+import_sql()
+{
+  file="${1}"
+  [ "${2}" != "" ] && db="${2}"
+
+  if [ ! -f "${file}" ] ; then
+    return 1
+  fi
+
+
+}
+
+
 # Setup an environement based on the templates
 echo -ne "  Creating necessary database creation objects..."
 if [ -d ".install" ] ;
@@ -115,6 +137,12 @@ client "${server}" "${mu}" "${pass}"
 
 # Show warning if old version of MySQL with legacy encryption
 mysql_ver=$(mysql --defaults-extra-file=.install/client.cnf mysql -sss -e 'SELECT @@version'|tr -cd [:digit:])
+
+if [[ "${mysql_ver}" =~ error ]] ; then
+  ${e} "${txt_red}Error!${txt_reset}\n"
+  ${e} "${txt_yellow}  MySQL credentials were invalid, could not connect${txt_reset}\n"
+fi
+
 if [ "${mysql_ver:0:3}" -lt 560 ] ; then
   legacy=1
   ${e} "${txt_red}Warning!${txt_reset}\n"
@@ -204,6 +232,14 @@ if [[ "${db}" =~ ERROR ]] ; then
   echo "Could not connect to database" && exit 1
 fi
 
+${e} "${txt_red}Warning!${txt_reset}\n"
+${e} "${txt_yellow}  Changes will be made to the database, table and fields${txt_reset}\n"
+
+if ask "  Do you wish to continue? " N; then
+  echo "Exiting..." && exit 1
+fi
+echo ""
+
 select name in ${db}; do
  if [ -n "${name}" ]; then
   sed -i "s/{NAME}/${name}/g" .install/*.sql
@@ -215,8 +251,10 @@ done
 # Ensure we ask for a backup
 ${e} "${txt_green}Create backup${txt_reset}\n"
 
-read -p "  Backup directory [/tmp]: " buf
-sed -i "s|{BUF}|${buf:=/tmp}|g" .install/*.sql
+data_dir=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e "SELECT @@datadir AS data_dir")
+backup_dir="${data_dir}${name}"
+read -p "  Backup directory [${backup_dir}]: " buf
+sed -i "s|{BUF}|${buf:=${backup_dir}}|g" .install/*.sql
 
 if ask "  Create a backup? " Y; then
  d=$(date +"%Y-%m-%d")
