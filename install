@@ -13,6 +13,12 @@ txt_reset='\e[0m'
 txt_gray_ps3=$'\e[90m'
 txt_reset_ps3=$'\e[0m'
 
+# Tests disabled by default
+test=0
+
+# Legacy encryption
+legacy=0
+
 # Show usage menu
 usage()
 {
@@ -41,28 +47,6 @@ password=${pass}
 host=${host}
 EOF
 }
-
-${e} "${txt_green}sqlSec - A symmetric encryption / data rotation tool for MySQL${txt_reset}\n"
-echo ""
-
-# Tests disabled by default
-test=0
-
-# Legacy encryption
-legacy=0
-
-
-# Parse and apply specified arugments
-while getopts “ht” OPTION ; do
-  case $OPTION in
-    h)
-      usage && exit 1 ;;
-    t)
-      test=1 ;;
-    ?)
-      usage && exit 1 ;;
-  esac
-done
 
 # Y/N prompt function
 function ask {
@@ -96,6 +80,7 @@ exec_cmd()
   cmd="${1}"
   [ "${2}" != "" ] && db="${2}"
 
+  echo $(mysql --defaults-extra-file=.install/client.cnf ${db} -sss -e "${cmd}")
 }
 
 # Import MySQL file
@@ -108,71 +93,157 @@ import_sql()
     return 1
   fi
 
-
+  echo $(mysql --defaults-extra-file=.install/client.cnf ${db} < ${file})
 }
 
+# Cleanup temporary files
+cleanup(){
+ echo "Cleaning up..."
+ rm -fr .install/
+ exit
+}
 
-# Setup an environement based on the templates
-echo -ne "  Creating necessary database creation objects..."
-if [ -d ".install" ] ;
-then
-  touch .install/database-schema.sql
-else
-  mkdir .install
-fi
-cp -fr templates/*.sql .install/
-echo "done"
-echo ""
+# Create selection of table fields
+fields(){
+ table="${1}"
+ PS3="${txt_gray_ps3}Select field to enable encryption: ${txt_reset_ps3}"
+ tables=$(exec_cmd "describe ${table}"|awk '{print $1}')
+ #tables=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e "describe ${table}" | awk '{print $1}')
+ tables+=" Main"
+ tables+=" Quit"
+ select field in ${tables}; do
+  case ${field} in
+   "Main")
+    tables
+    break
+    ;;
+   "Quit")
+    break
+    ;;
+   *)
+    if [ -n "${field}" ]; then
+     # Make sure there aren't any foreign keys on the field selected or we won't be able to convert the field to a BLOB column type
+     chk=$(exec_cmd "select count(*) AS total from information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = "'${name}'" AND TABLE_NAME = "'${table}'" AND COLUMN_NAME = "'${field}'";")
+     #chk=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e 'select count(*) AS total from information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = "'${name}'" AND TABLE_NAME = "'${table}'" AND COLUMN_NAME = "'${field}'";')
+     if [ "${chk}" -gt 0 ] ; then
+       ${e} "${txt_red}A foreign key constraint exists for this field. Cannot use '${table}.${field}'${txt_reset}\n"
+     else
+       exec_cmd "ALTER TABLE `'${table}'` MODIFY `'${field}'` BLOB"
+       #mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e 'ALTER TABLE `'${table}'` MODIFY `'${field}'` BLOB'
+       exec_cmd "INSERT INTO `sqlSec_map` (`tbl`, `field`) VALUES ("'${table}'", "'${field}'")"
+       #mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e 'INSERT INTO `sqlSec_map` (`tbl`, `field`) VALUES ("'${table}'", "'${field}'")'
+     fi
+     fields ${table}
+    else
+     echo "Invalid choice"
+     fields ${table}
+    fi
+    ;;
+  esac
+ done
+}
 
-# Begin questioning about system
-${e} "${txt_green}Database installation credentials${txt_reset}\n"
+# Create selection of tables
+tables(){
+ PS3="${txt_gray_ps3}Select table to view fields: ${txt_reset_ps3}"
+ tables=$(exec_cmd "show tables"|awk '{ print $1 }' | grep -v "sqlSec" | grep -v "view")
+ #tables=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e "show tables" | awk '{ print $1 }' | grep -v "sqlSec" | grep -v "view")
+ tables+=" Quit"
+ select table in ${tables}; do
+  case ${table} in
+   "Quit")
+    cleanup
+    ;;
+   *)
+    if [ -n "${table}" ]; then
+     fields ${table}
+    else
+     echo "Invalid choice"
+     fields ${table}
+    fi
+    ;;
+  esac
+ done
+}
 
-read -p "  Enter MySQL username: " mu;
-read -sp "  Enter root MySQL password: " pass;
-echo ""
-echo ""
-
-# Create a connection file
-client "${server}" "${mu}" "${pass}"
-
-# Show warning if old version of MySQL with legacy encryption
-mysql_ver=$(mysql --defaults-extra-file=.install/client.cnf mysql -sss -e 'SELECT @@version'|tr -cd [:digit:])
-
-if [[ "${mysql_ver}" =~ error ]] ; then
-  ${e} "${txt_red}Error!${txt_reset}\n"
-  ${e} "${txt_yellow}  MySQL credentials were invalid, could not connect${txt_reset}\n"
-fi
-
-if [ "${mysql_ver:0:3}" -lt 560 ] ; then
-  legacy=1
-  ${e} "${txt_red}Warning!${txt_reset}\n"
-  ${e} "${txt_yellow}  Your MySQL installation does not support the latest${txt_reset}\n"
-  ${e} "${txt_yellow}  encryption support, it is suggested you upgrade < 5.6.x${txt_reset}\n"
+# Initial env setup
+setup_env()
+{
+  # Setup an environement based on the templates
+  echo -ne "  Creating necessary database creation objects..."
+  if [ -d ".install" ] ;
+  then
+    touch .install/database-schema.sql
+  else
+    mkdir .install
+  fi
+  cp -fr templates/*.sql .install/
+  echo "done"
   echo ""
-fi
+}
 
-# Generate some credentials for the sqlSec stored procedures
-${e} "${txt_green}Database settings${txt_reset}\n"
+init_conn()
+{
+  # Begin questioning about system
+  ${e} "${txt_green}Database installation credentials${txt_reset}\n"
 
-read -p "  Database server name [localhost]: " server
-sed -i "s/{SERVER}/${server:=localhost}/g" .install/*.sql
+  read -p "  Enter MySQL username: " mu;
+  read -sp "  Enter root MySQL password: " pass;
+  echo ""
+  echo ""
 
-client "${server}" "${mu}" "${pass}"
+  # Create a connection file
+  client "${server}" "${mu}" "${pass}"
+}
 
-sp_user="$(openssl rand -hex 6)";
-sed -i "s/{SP}/${sp_user}/g" .install/*.sql
+# Determine if MySQL is < 5.6
+check_legacy()
+{
+  # Show warning if old version of MySQL with legacy encryption
+  mysql_ver=$(exec_cmd "SELECT @@version"|tr -cd [:digit:])
+  #mysql_ver=$(mysql --defaults-extra-file=.install/client.cnf mysql -sss -e 'SELECT @@version'|tr -cd [:digit:])
 
-sp_pass="$(openssl rand -hex 12)";
-sed -i "s/{SP_PW}/${sp_pass}/g" .install/*.sql
+  if [[ "${mysql_ver}" =~ error ]] ; then
+    ${e} "${txt_red}Error!${txt_reset}\n"
+    ${e} "${txt_yellow}  MySQL credentials were invalid, could not connect${txt_reset}\n"
+  fi
 
-key="$(openssl rand -hex 128)";
-sed -i "s/{KEY}/${key}/g" .install/*.sql
+  if [ "${mysql_ver:0:3}" -lt 560 ] ; then
+    legacy=1
+    ${e} "${txt_red}Warning!${txt_reset}\n"
+    ${e} "${txt_yellow}  Your MySQL installation does not support the latest${txt_reset}\n"
+    ${e} "${txt_yellow}  encryption support, it is suggested you upgrade < 5.6.x${txt_reset}\n"
+    echo ""
+  fi
+}
 
-ver="$(openssl rand -hex 8)";
-sed -i "s/{VER}/${ver}/g" .install/*.sql
+# sqlSec credentails
+generate_credentials()
+{
+  # Generate some credentials for the sqlSec stored procedures
+  ${e} "${txt_green}Database settings${txt_reset}\n"
 
-# Setup test env if asked
-if [ "${test}" == 1 ] ; then
+  read -p "  Database server name [localhost]: " server
+  sed -i "s/{SERVER}/${server:=localhost}/g" .install/*.sql
+
+  client "${server}" "${mu}" "${pass}"
+
+  sp_user="$(openssl rand -hex 6)";
+  sed -i "s/{SP}/${sp_user}/g" .install/*.sql
+
+  sp_pass="$(openssl rand -hex 12)";
+  sed -i "s/{SP_PW}/${sp_pass}/g" .install/*.sql
+
+  key="$(openssl rand -hex 128)";
+  sed -i "s/{KEY}/${key}/g" .install/*.sql
+
+  ver="$(openssl rand -hex 8)";
+  sed -i "s/{VER}/${ver}/g" .install/*.sql
+}
+
+# Create test database if asked
+create_test_db()
+{
   cp -fr tests/*.sql .install/
 
   # User defined database settings
@@ -217,142 +288,128 @@ if [ "${test}" == 1 ] ; then
   sed -i "s/{SP}/${sp_user}/g" .install/*.sql
   sed -i "s/{SP_PW}/${sp_pass}/g" .install/*.sql
 
-  mysql --defaults-extra-file=.install/client.cnf < .install/test-database.sql
-  mysql --defaults-extra-file=.install/client.cnf < .install/test-procs.sql
+  import_sql .install/test-database.sql
+  #mysql --defaults-extra-file=.install/client.cnf < .install/test-database.sql
+  import_sql .install/test-procs.sql
+  #mysql --defaults-extra-file=.install/client.cnf < .install/test-procs.sql
   echo ""
-fi
+}
 
-# Begin installing sqlSec
-${e} "${txt_green}Configure database${txt_reset}\n"
+# Perform a backup of the specified database
+do_backup()
+{
+  # Ensure we ask for a backup
+  ${e} "${txt_green}Create backup${txt_reset}\n"
 
-PS3="${txt_gray_ps3}Select database to use: ${txt_reset_ps3}"
-db=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e "show databases"|grep -v "sys"|grep -v "information"|grep -v "performance"|grep -v "mysql"|grep -v "view"|grep -v "sqlSec*")
+  data_dir=$(exec_cmd "SELECT @@datadir as data_dir")
+  #data_dir=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e "SELECT @@datadir AS data_dir")
+  backup_dir="${data_dir}${name}"
+  read -p "  Backup directory [${backup_dir}]: " buf
+  sed -i "s|{BUF}|${buf:=${backup_dir}}|g" .install/*.sql
 
-if [[ "${db}" =~ ERROR ]] ; then
-  echo "Could not connect to database" && exit 1
-fi
-
-${e} "${txt_red}Warning!${txt_reset}\n"
-${e} "${txt_yellow}  Changes will be made to the database, table and fields${txt_reset}\n"
-
-if ask "  Do you wish to continue? " N; then
-  echo "Exiting..." && exit 1
-fi
-echo ""
-
-select name in ${db}; do
- if [ -n "${name}" ]; then
-  sed -i "s/{NAME}/${name}/g" .install/*.sql
+  if ask "  Create a backup? " Y; then
+   d=$(date +"%Y-%m-%d")
+   mysqldump --defaults-extra-file=.install/client.cnf --routines ${name} > ${buf}/${d}-${name}.sql
+   echo "  Backup created... ${buf}/${d}-${name}.sql"
+  fi
   echo ""
-  break
- fi
+}
+
+# Install & configure
+setup()
+{
+  # Begin installing sqlSec
+  ${e} "${txt_green}Configure database${txt_reset}\n"
+
+  PS3="${txt_gray_ps3}Select database to use: ${txt_reset_ps3}"
+  db=$(exec_cmd "show databases"|grep -v "sys"|grep -v "information"|grep -v "performance"|grep -v "mysql"|grep -v "view"|grep -v "sqlSec*")
+  #db=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e "show databases"|grep -v "sys"|grep -v "information"|grep -v "performance"|grep -v "mysql"|grep -v "view"|grep -v "sqlSec*")
+
+  if [[ "${db}" =~ ERROR ]] ; then
+    echo "Could not connect to database" && exit 1
+  fi
+
+  ${e} "${txt_red}Warning!${txt_reset}\n"
+  ${e} "${txt_yellow}  Changes will be made to the database, table and fields${txt_reset}\n"
+
+  if ask "  Do you wish to continue? " N; then
+    echo "Exiting..." && exit 1
+  fi
+  echo ""
+
+  select name in ${db}; do
+   if [ -n "${name}" ]; then
+    sed -i "s/{NAME}/${name}/g" .install/*.sql
+    echo ""
+    break
+   fi
+  done
+
+  do_backup
+
+  # Get started
+  ${e} "${txt_green}sqlSec specific operations${txt_reset}\n"
+
+  echo -ne "  Adding database sqlSec tables, users & permissions..."
+  import_sql .install/sqlSec-schema.sql ${name}
+  #mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-schema.sql
+  exec_cmd "FLUSH PRIVILEGES"
+  #mysql --defaults-extra-file=.install/client.cnf ${name} -e 'FLUSH PRIVILEGES'
+  echo "done"
+
+  echo -ne "  Creating key generation procedures..."
+  if [ "${mysql_ver:0:3}" -lt 560 ] ; then
+    import_sql .install/sqlSec-keyring-legacy.sql ${name}
+    #mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-keyring-legacy.sql
+  else
+    import_sql .install/sqlSec-keyring-modern.sql ${name}
+    #mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-keyring-modern.sql
+  fi
+  echo "done"
+
+  # Need to add a key management option here (obscuring the key is not the right way)
+
+  echo -ne "  Creating key rotation procedures"
+  import_sql .install/sqlSec-procs.sql ${name}
+  #mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-procs.sql
+  echo "done"
+  echo ""
+
+  ${e} "${txt_green}Specify encrypted fields for database: ${name}${txt_reset}\n"
+  tables
+}
+
+# Main subroutine
+main()
+{
+  ${e} "${txt_green}sqlSec - A symmetric encryption / data rotation tool for MySQL${txt_reset}\n"
+  echo ""
+
+  setup_env
+  init_conn
+  check_legacy
+  generate_credentials
+
+  if [ "${test}" == 1 ] ; then
+    create_test_db
+  fi
+
+  setup
+  # Print randomly generated sqlSec user details
+
+}
+
+# Parse and apply specified arugments
+while getopts “ht” OPTION ; do
+  case $OPTION in
+    h)
+      usage && exit 1 ;;
+    t)
+      test=1 ;;
+    ?)
+      usage && exit 1 ;;
+  esac
 done
 
-# Ensure we ask for a backup
-${e} "${txt_green}Create backup${txt_reset}\n"
-
-data_dir=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e "SELECT @@datadir AS data_dir")
-backup_dir="${data_dir}${name}"
-read -p "  Backup directory [${backup_dir}]: " buf
-sed -i "s|{BUF}|${buf:=${backup_dir}}|g" .install/*.sql
-
-if ask "  Create a backup? " Y; then
- d=$(date +"%Y-%m-%d")
- mysqldump --defaults-extra-file=.install/client.cnf --routines ${name} > ${buf}/${d}-${name}.sql
- echo "  Backup created... ${buf}/${d}-${name}.sql"
-fi
-echo ""
-
-# Get started
-${e} "${txt_green}sqlSec specific operations${txt_reset}\n"
-
-echo -ne "  Adding database sqlSec tables, users & permissions..."
-mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-schema.sql
-mysql --defaults-extra-file=.install/client.cnf ${name} -e 'FLUSH PRIVILEGES'
-echo "done"
-
-echo -ne "  Creating key generation procedures..."
-if [ "${mysql_ver:0:3}" -lt 560 ] ; then
-  mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-keyring-legacy.sql
-else
-  mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-keyring-modern.sql
-fi
-echo "done"
-
-# Need to add a key management option here (obscuring the key is not the right way)
-
-echo -ne "  Creating key rotation procedures"
-mysql --defaults-extra-file=.install/client.cnf ${name} < .install/sqlSec-procs.sql
-echo "done"
-echo ""
-
-${e} "${txt_green}Specify encrypted fields for database: ${name}${txt_reset}\n"
-
-cleanup(){
- echo "Cleaning up..."
- rm -fr .install/
- exit
-}
-
-fields(){
- table="${1}"
- PS3="${txt_gray_ps3}Select field to enable encryption: ${txt_reset_ps3}"
- tables=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e "describe ${table}" | awk '{print $1}')
- tables+=" Main"
- tables+=" Quit"
- select field in ${tables}; do
-  case ${field} in
-   "Main")
-    tables
-    break
-    ;;
-   "Quit")
-    break
-    ;;
-   *)
-    if [ -n "${field}" ]; then
-     # Make sure there aren't any foreign keys on the field selected or we won't be able to convert the field to a BLOB column type
-     chk=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e 'select count(*) AS total from information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = "'${name}'" AND TABLE_NAME = "'${table}'" AND COLUMN_NAME = "'${field}'";')
-     if [ "${chk}" -gt 0 ] ; then
-       ${e} "${txt_red}A foreign key constraint exists for this field. Cannot use '${table}.${field}'${txt_reset}\n"
-     else
-       mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e 'ALTER TABLE `'${table}'` MODIFY `'${field}'` BLOB'
-       mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e 'INSERT INTO `sqlSec_map` (`tbl`, `field`) VALUES ("'${table}'", "'${field}'")'
-     fi
-     fields ${table}
-    else
-     echo "Invalid choice"
-     fields ${table}
-    fi
-    ;;
-  esac
- done
-}
-
-tables(){
- PS3="${txt_gray_ps3}Select table to view fields: ${txt_reset_ps3}"
- tables=$(mysql --defaults-extra-file=.install/client.cnf ${name} -sss -e "show tables" | awk '{ print $1 }' | grep -v "sqlSec" | grep -v "view")
- tables+=" Quit"
- select table in ${tables}; do
-  case ${table} in
-   "Quit")
-    cleanup
-    ;;
-   *)
-    if [ -n "${table}" ]; then
-     fields ${table}
-    else
-     echo "Invalid choice"
-     fields ${table}
-    fi
-    ;;
-  esac
- done
-}
-
-tables
-
-# Print randomly generated sqlSec user details
-
-# Generate some stored procedures to handle encryption, decryption and key loading
-# on a per table basis
+# Robot, do work
+main
