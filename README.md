@@ -2,6 +2,15 @@
 Performs symmetric encryption key and data rotation adhering to ISO 27001
 (A.12.3.2), HIPAA (Title 2) & PCI-DSS (Requirement 3.5 & 3.6).
 
+## But why tho? ##
+An online discussion posed an interesting question; "Is it better to encrypt
+data within the application layers or database layers?"
+
+This was developed essentially to evaluate the practicality of using a 
+database set of functions (stored procedures) to handle encryption and
+decryption of data. The automated key rotation functionality would have
+to be part of that solution in order to make it a worthy implementation.
+
 ## Description ##
 Compliance regarding ['at rest'](http://www.slideshare.net/SISAInfosec/key-management-techniques-sisa-presentation-at-ges-conference)
 data requires the use of symmetric encryption.
@@ -29,7 +38,9 @@ so without risk of interuption of existing systems.
 
 ### Install test suite ###
 If you run the tool with the `-t` option it will import a simple `PKI` management
-database included with this distribution.
+database included with this distribution. This database schema could in theory be
+used to handle PKI or TLS keys, certificate authority, certificate signing requests
+and x509 signed certificates and credentials.
 
 ```sh
 $ ./install -t
